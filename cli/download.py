@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 
-from gpapi.googleplay import GooglePlayAPI, RequestError, config
+from gpapi.googleplay import GooglePlayAPI, config
 
 import sys
 import os
-import argparse
+# import argparse
 import json
-import click
 
 # GPAPI_GSFID = int(os.environ["GPAPI_GSFID"])
 # GPAPI_AUTH_TOKEN = os.environ["GPAPI_GSFID"]
@@ -23,7 +22,7 @@ GOOGLE_APP_PASSWORD = os.environ["GOOGLE_APP_PASSWORD"]
 DOWNLOAD_PATH = os.environ["APK_DOWNLOAD_PATH"]
 
 LOGIN_CREDENTIALS_FILE = os.environ["LOGIN_CREDENTIALS_FILE"]
-LOGIN_CREDENTIALS_LIST = os.environ["LOGIN_CREDENTIALS_LIST"]
+# LOGIN_CREDENTIALS_LIST = os.environ["LOGIN_CREDENTIALS_LIST"]
 
 
 def buildApkFilePath(app_id, filename, extension):
@@ -34,53 +33,53 @@ def buildApkFilePath(app_id, filename, extension):
     return f"{folder}/{filename}.{extension}"
 
 
-def parseCliArgs():
-    ap = argparse.ArgumentParser(description='Download apk files')
-    ap.add_argument('--app-id', dest='app_id', help='com.example.app', required=True)
+# def parseCliArgs():
+#     ap = argparse.ArgumentParser(description='Download apk files')
+#     ap.add_argument('--app-id', dest='app_id', help='com.example.app', required=True)
 
-    args = ap.parse_args()
+#     args = ap.parse_args()
 
-    return {"app_id": args.app_id}
+#     return {"app_id": args.app_id}
 
-def getLoginCredentials():
-    if not os.path.exists(LOGIN_CREDENTIALS_FILE):
-        return dict()
+# def getLoginCredentials():
+#     if not os.path.exists(LOGIN_CREDENTIALS_FILE):
+#         return dict()
 
-    with open(LOGIN_CREDENTIALS_FILE) as file:
-        return json.load(file)
+#     with open(LOGIN_CREDENTIALS_FILE) as file:
+#         return json.load(file)
 
-def saveLoginCredentials():
-    data = getLoginCredentials()
-    data.update(credentials)
+# def saveLoginCredentials():
+#     data = getLoginCredentials()
+#     data.update(credentials)
 
-    with open(LOGIN_CREDENTIALS_FILE, "w") as file:
-        json.dump(data, file, indent = 4)
+#     with open(LOGIN_CREDENTIALS_FILE, "w") as file:
+#         json.dump(data, file, indent = 4)
 
-def login():
-    credentials = getLoginCredentials()
-    # print(dir(credentials))
-    print("CREDENTIALS")
-    print(repr(credentials))
-    # print("DEVICE")
-    # print(api.deviceBuilder.device['build.hardware'])
-    print("CONFIG")
-    print(config.getDevicesCodenames())
-    exit()
+# def login():
+#     credentials = getLoginCredentials()
+#     # print(dir(credentials))
+#     print("CREDENTIALS")
+#     print(repr(credentials))
+#     # print("DEVICE")
+#     # print(api.deviceBuilder.device['build.hardware'])
+#     print("CONFIG")
+#     print(config.getDevicesCodenames())
+#     exit()
 
-    api = GooglePlayAPI(LOCALE, TIMEZONE, api.deviceBuilder.device['build.hardware'])
+#     api = GooglePlayAPI(LOCALE, TIMEZONE, api.deviceBuilder.device['build.hardware'])
 
-    if credentials['gsfid'] and credentials['authSubToken']:
-        print("\n--> Attempting to login with the GPAPI_GSFID and GPAPI_GSFID from the .env file\n")
-        api.login(None, None, credentials['gsfid'], credentials['authSubToken'])
-    elif GOOGLE_APP_PASSWORD:
-        print('\n--> Logging in with GOOGLE_EMAIL and GOOGLE_APP_PASSWORD from the .env file\n')
-        api.login(GOOGLE_EMAIL, GOOGLE_APP_PASSWORD, None, None)
-        print("GPAPI_GSFID: " + str(api.gsfId))
-        print("GPAPI_AUTH_TOKEN: " + str(api.authSubToken))
+#     if credentials['gsfid'] and credentials['authSubToken']:
+#         print("\n--> Attempting to login with the GPAPI_GSFID and GPAPI_GSFID from the .env file\n")
+#         api.login(None, None, credentials['gsfid'], credentials['authSubToken'])
+#     elif GOOGLE_APP_PASSWORD:
+#         print('\n--> Logging in with GOOGLE_EMAIL and GOOGLE_APP_PASSWORD from the .env file\n')
+#         api.login(GOOGLE_EMAIL, GOOGLE_APP_PASSWORD, None, None)
+#         print("GPAPI_GSFID: " + str(api.gsfId))
+#         print("GPAPI_AUTH_TOKEN: " + str(api.authSubToken))
 
-    else:
-        print("\n--> You need to login first with GOOGLE_EMAIL and GOOGLE_APP_PASSWORD that you need to set in the .env file.\n")
-        exit(1)
+#     else:
+#         print("\n--> You need to login first with GOOGLE_EMAIL and GOOGLE_APP_PASSWORD that you need to set in the .env file.\n")
+#         exit(1)
 
 # def login(api):
 #     if GPAPI_GSFID and GPAPI_AUTH_TOKEN:
@@ -160,25 +159,25 @@ def search(api):
             for app in cluster["child"]:
                 print("\t\tapp: {}".format(app["docid"]))
 
-def main():
+# def main():
 
-    cli_args = parseCliArgs()
+#     # cli_args = parseCliArgs()
 
-    print(f"\n---> Started processing for {cli_args['app_id']} <---\n")
+#     print(f"\n---> Started processing for {cli_args['app_id']} <---\n")
 
-    api = login()
+#     api = login()
 
-    # search(api = api)
+#     # search(api = api)
 
-    # try:
-    # /downloadApk(app_id = cli_args["app_id"], api = api)
-    # except Exception as e:
-        # print(e)
-        # exit(1)
+#     # try:
+#     # /downloadApk(app_id = cli_args["app_id"], api = api)
+#     # except Exception as e:
+#         # print(e)
+#         # exit(1)
 
-    print(f"\n---> Finished processing for {cli_args['app_id']} <---\n")
+#     print(f"\n---> Finished processing for {cli_args['app_id']} <---\n")
 
-if __name__ == "__main__":
-    # Run the script from the main directory of the project by using this command:
-    # pipenv run python -m scripts.crawl_apps_by_developers
-    main()
+# if __name__ == "__main__":
+#     # Run the script from the main directory of the project by using this command:
+#     # pipenv run python -m scripts.crawl_apps_by_developers
+#     main()
