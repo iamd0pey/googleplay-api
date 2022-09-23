@@ -1,0 +1,5 @@
+.local/
+build/
+gpapi.egg-info/
+bin/
+.env
