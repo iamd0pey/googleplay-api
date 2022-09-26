@@ -7,9 +7,23 @@ import os
 import click
 import download
 import accounts
+import encryption
 
 LOCALE = os.environ["GPAPI_LOCALE"]
 TIMEZONE = os.environ["GPAPI_TIMEZONE"]
+
+ENCRYPTION_KEY_FILE = os.environ["ENCRYPTION_KEY_FILE"]
+
+def echoSuccess(message):
+    click.secho(message, fg='green')
+
+
+def echoWarn(message):
+    click.secho(message, fg='yellow')
+
+def echoError(message):
+    click.secho(message, err=True, fg='red')
+
 
 @click.group()
 @click.option('--debug/--no-debug', default=False)
@@ -30,23 +44,113 @@ def account(email, password, device, locale, timezone):
 
     account = {
         'email': email,
-        'password': password,
+        'plain_text_password': password,
         'device_code_name': device,
         'locale': locale,
         'timezone': timezone,
-        'gsfid': None,
+        'gsfId': None,
         'authSubToken': None,
     }
 
-    accounts.random_login_for_device(device)
-    exit()
+    if accounts.save(account):
+        echoSuccess("Account created...")
+        exit(0)
 
-    if not accounts.save(account):
-        click.secho(f"Unable to add account due to failure in the Login", err=True, fg='red')
+    echoError("Unable to add account due to failure in the Login")
+    exit(1)
+
+
+@cli.command(help="Login to a device with the given Google account email")
+@click.option("--device", required=True, help="The device code name, e.g angler. [default: random]")
+@click.option("--email", required=True, help="The email for your device Google account")
+def login(device, email):
+    result = accounts.login_for_device(device, email)
+
+    if 'api' in result and 'account' in result:
+        account = result['account']
+        api = result['api']
+
+        click.echo(f"device: {account['device_code_name']}")
+        click.echo(f"email: {account['email']}")
+        click.echo(f"GSFID: {api.gsfId}")
+        click.echo(f"TOKEN: {api.authSubToken}")
+
+        echoSuccess(f"Logged-in successfully...")
+        exit(0)
+
+    echoError(f"Failed login attempt...")
+    exit(1)
+
+
+@cli.command(help="Login to a device with a random Google account email")
+@click.option("--device", default=None, help="The device code name, e.g angler. [default: random]")
+def login_random(device):
+    result = accounts.random_login(device)
+
+    if result == None:
+        echoError(f"Failed to find an account for the given device...")
         exit(1)
 
-    click.secho(f"Account created...", fg='green')
+    if result == False:
+        echoError("Failed random login attempt...")
+        exit(1)
 
+    if 'api' in result and 'account' in result:
+        account = result['account']
+        api = result['api']
+
+        click.echo(f"device: {account['device_code_name']}")
+        click.echo(f"email: {account['email']}")
+        click.echo(f"GSFID: {api.gsfId}")
+        click.echo(f"TOKEN: {api.authSubToken}")
+
+        echoSuccess("Randomly logged-in successfully...")
+        exit(0)
+
+    echoError("I have no idea about what went wrong!!!")
+    exit(1)
+
+
+@cli.command(help=f"Generates a symmetric key into {ENCRYPTION_KEY_FILE} file to later use to encrypt/decrypt data.")
+def generate_encryption_key():
+    result = accounts.generate_encryption_key()
+
+    if result == False:
+        echoError(f"Failed to generate the encryption key...")
+        exit(1)
+
+    if result == None:
+        echoWarn(f"Encryption key already exists: {ENCRYPTION_KEY_FILE}")
+        exit(0)
+
+    if result == True:
+        echoSuccess(f"Encryption key generated into file: {ENCRYPTION_KEY_FILE}")
+        exit(0)
+
+
+@cli.command(help="Encrypts the given string")
+@click.option("--text", default=None, help="The string to encrypt")
+def encrypt_string(text):
+    result = encryption.encrypt_string(text)
+    print(result)
+
+@cli.command(help="Decrypts the given string")
+@click.option("--text", default=None, help="The string to decrypt")
+def decrypt_string(text):
+    result = encryption.decrypt_string(text)
+    print(result)
+
+@cli.command(help="Downloads the give APK ID")
+@click.option("--app-id", required=True, help="The APP ID to download, e.g. com.example.app")
+def download_apk(app_id):
+    result = download.downloadAppApk(app_id)
+
+    if result == False:
+        echoError('Failed to download the App APK...')
+        exit(1)
+
+    echoSuccess('Downloaded successfully the App APK...')
+    exit(0)
 
 @cli.command(help="List all device hardware identifiers")
 def devices():

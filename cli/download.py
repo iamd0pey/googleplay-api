@@ -6,6 +6,7 @@ import sys
 import os
 # import argparse
 import json
+import accounts
 
 # GPAPI_GSFID = int(os.environ["GPAPI_GSFID"])
 # GPAPI_AUTH_TOKEN = os.environ["GPAPI_GSFID"]
@@ -31,68 +32,6 @@ def buildApkFilePath(app_id, filename, extension):
     os.makedirs(folder, exist_ok = True)
 
     return f"{folder}/{filename}.{extension}"
-
-
-# def parseCliArgs():
-#     ap = argparse.ArgumentParser(description='Download apk files')
-#     ap.add_argument('--app-id', dest='app_id', help='com.example.app', required=True)
-
-#     args = ap.parse_args()
-
-#     return {"app_id": args.app_id}
-
-# def getLoginCredentials():
-#     if not os.path.exists(LOGIN_CREDENTIALS_FILE):
-#         return dict()
-
-#     with open(LOGIN_CREDENTIALS_FILE) as file:
-#         return json.load(file)
-
-# def saveLoginCredentials():
-#     data = getLoginCredentials()
-#     data.update(credentials)
-
-#     with open(LOGIN_CREDENTIALS_FILE, "w") as file:
-#         json.dump(data, file, indent = 4)
-
-# def login():
-#     credentials = getLoginCredentials()
-#     # print(dir(credentials))
-#     print("CREDENTIALS")
-#     print(repr(credentials))
-#     # print("DEVICE")
-#     # print(api.deviceBuilder.device['build.hardware'])
-#     print("CONFIG")
-#     print(config.getDevicesCodenames())
-#     exit()
-
-#     api = GooglePlayAPI(LOCALE, TIMEZONE, api.deviceBuilder.device['build.hardware'])
-
-#     if credentials['gsfid'] and credentials['authSubToken']:
-#         print("\n--> Attempting to login with the GPAPI_GSFID and GPAPI_GSFID from the .env file\n")
-#         api.login(None, None, credentials['gsfid'], credentials['authSubToken'])
-#     elif GOOGLE_APP_PASSWORD:
-#         print('\n--> Logging in with GOOGLE_EMAIL and GOOGLE_APP_PASSWORD from the .env file\n')
-#         api.login(GOOGLE_EMAIL, GOOGLE_APP_PASSWORD, None, None)
-#         print("GPAPI_GSFID: " + str(api.gsfId))
-#         print("GPAPI_AUTH_TOKEN: " + str(api.authSubToken))
-
-#     else:
-#         print("\n--> You need to login first with GOOGLE_EMAIL and GOOGLE_APP_PASSWORD that you need to set in the .env file.\n")
-#         exit(1)
-
-# def login(api):
-#     if GPAPI_GSFID and GPAPI_AUTH_TOKEN:
-#         print("\n--> Attempting to login with the GPAPI_GSFID and GPAPI_GSFID from the .env file\n")
-#         api.login(None, None, GPAPI_GSFID, GPAPI_AUTH_TOKEN)
-#     elif GOOGLE_APP_PASSWORD:
-#         print('\n--> Logging in with GOOGLE_EMAIL and GOOGLE_APP_PASSWORD from the .env file\n')
-#         api.login(GOOGLE_EMAIL, GOOGLE_APP_PASSWORD, None, None)
-#         print("GPAPI_GSFID: " + str(api.gsfId))
-#         print("GPAPI_AUTH_TOKEN: " + str(api.authSubToken))
-#     else:
-#         print("\n--> You need to login first with GOOGLE_EMAIL and GOOGLE_APP_PASSWORD that you need to set in the .env file.\n")
-#         exit(1)
 
 def saveApkFrom(download, app_id):
     print("\n--> Attempting to download the APK")
@@ -135,9 +74,19 @@ def saveSplitsFrom(download, app_id):
 
         print("\n\tSplits Download successful\n")
 
+def downloadAppApk(app_id):
+    result = accounts.random_login()
+
+    if 'api' in result:
+        downloadApk(result['api'], app_id)
+        return True
+
+    return False
+
 def downloadApk(api, app_id):
     api.log(app_id)
 
+    # @TODO try catch gpapi.googleplay.RequestError
     download = api.download(app_id)
 
     saveApkFrom(download, app_id)

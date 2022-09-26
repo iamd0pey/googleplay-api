@@ -1,29 +1,22 @@
-#!/usr/bin/env python3
-
 from gpapi.googleplay import GooglePlayAPI, config
 
 import sys
 import os
-# import argparse
 import json
 import random
+import encryption
 
-# GPAPI_GSFID = int(os.environ["GPAPI_GSFID"])
-# GPAPI_AUTH_TOKEN = os.environ["GPAPI_GSFID"]
-
-GPAPI_GSFID = None
-GPAPI_AUTH_TOKEN = None
-
-LOCALE = os.environ["GPAPI_LOCALE"]
-TIMEZONE = os.environ["GPAPI_TIMEZONE"]
-
-GOOGLE_EMAIL = os.environ["GOOGLE_EMAIL"]
-GOOGLE_APP_PASSWORD = os.environ["GOOGLE_APP_PASSWORD"]
-
-DOWNLOAD_PATH = os.environ["APK_DOWNLOAD_PATH"]
+import logging
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+logger.addHandler(logging.StreamHandler()) #Exporting logs to the screen
 
 GOOGLE_ACCOUNTS_FILE = os.environ["GOOGLE_ACCOUNTS_FILE"]
-# LOGIN_CREDENTIALS_LIST = os.environ["LOGIN_CREDENTIALS_LIST"]
+
+
+def getRandomDeviceCodeName():
+    devices = config.getDevicesCodenames()
+    return random.choice(devices)
 
 def getAccounts():
     if not os.path.exists(GOOGLE_ACCOUNTS_FILE):
@@ -39,10 +32,27 @@ def save(account, validate_login=True):
     email = account['email']
     device_code_name = account['device_code_name']
 
-    print(f"Creating an account for device_code_name: {device_code_name}")
+    logger.info(f"\n---> Creating an account for device_code_name: {device_code_name}")
+
+    if not 'plain_text_password' in account:
+        return None
 
     if validate_login and not login(account):
         return False
+
+    print('account: ', account)
+
+    if 'plain_text_password' in account:
+        account['password'] = encryption.base64_encrypt_string(account['plain_text_password'])
+        account.pop('plain_text_password')
+
+    if 'api.gsfId' in account:
+        account['gsfId'] = account['api.gsfId']
+        account.pop('api.gsfId')
+
+    if 'api.authSubToken' in account:
+        account['authSubToken'] = encryption.base64_encrypt_string(account['api.authSubToken'])
+        account.pop('api.authSubToken')
 
     accounts = getAccounts()
 
@@ -62,8 +72,8 @@ def save(account, validate_login=True):
 
     accounts['by_email'][email]['devices'][device_code_name] = account
 
-    print("SAVE ACCOUNT")
-    print(account)
+    logger.debug("SAVED ACCOUNT:")
+    logger.debug(account)
 
     with open(GOOGLE_ACCOUNTS_FILE, "w") as file:
         json.dump(accounts, file, indent = 4)
@@ -80,51 +90,71 @@ def getAccountsForDevice(device_code_name):
     return None
 
 
-def random_login_for_device(device_code_name):
+def login_for_device(device_code_name, email):
     accounts = getAccountsForDevice(device_code_name)
-    print(accounts)
-    print(accounts.keys())
 
     if accounts is None:
-        print(f"\nAccount not found for device code name: {device_code_name}")
+        logger.error(f"\nAccount not found for device code name: {device_code_name}")
         return False
 
+    return {
+        "account": accounts[email],
+        "api": login(accounts[email])
+    }
+
+def random_login(device_code_name = None):
+    if not device_code_name == None:
+        accounts = getAccountsForDevice(device_code_name)
+
+        if accounts is None:
+            return None
+
+    if device_code_name == None:
+        found_account = False
+
+        while not found_account:
+
+            device_code_name = getRandomDeviceCodeName()
+
+            logger.debug(f"\n---> Attempting to find account for device code name: {device_code_name}")
+            accounts = getAccountsForDevice(device_code_name)
+
+            if accounts is None:
+                continue
+
+            found_account = True
+
     email = random.choice(list(accounts.keys()))
-    return login(accounts[email])
+
+    return {
+        "account": accounts[email],
+        "api": login(accounts[email])
+    }
 
 
 def login(account):
-    print("\nLOGIN ACCOUNT:")
-    print(account)
     api = GooglePlayAPI(account['locale'], account['timezone'], account['device_code_name'])
 
-    if account['gsfid'] and account['authSubToken']:
-        print("\n--> Attempting to login with the GPAPI_GSFID and GPAPI_GSFID from the .env file\n")
-        api.login(None, None, account['gsfid'][0], account['authSubToken'])
-    elif account['password']:
-        print('\n--> Logging in with GOOGLE_EMAIL and GOOGLE_APP_PASSWORD from the .env file\n')
-        api.login(account['email'], account['password'], None, None)
-        print("GPAPI_GSFID: " + str(api.gsfId))
-        print("GPAPI_AUTH_TOKEN: " + str(api.authSubToken))
-        account['gsfid'] = int(api.gsfId),
-        account['authSubToken'] = api.authSubToken
+    if ('gsfId' in account and 'authSubToken' in account) and (account['gsfId'] and account['authSubToken']):
+        logger.info("\n--> Attempting to login with the GPAPI_GSFID and GPAPI_GSFID\n")
+
+        gsfId = account['gsfId'][0]
+        authSubToken = encryption.base64_decrypt_string(account['authSubToken'])
+
+        api.login(None, None, gsfId, authSubToken)
+
+    elif 'plain_text_password' in account:
+        logger.info('\n--> Logging in with GOOGLE_EMAIL and GOOGLE_APP_PASSWORD\n')
+
+        api.login(account['email'], account['plain_text_password'], None, None)
+
+        account['api.gsfId'] = api.gsfId,
+        account['api.authSubToken'] = api.authSubToken
+
         save(account, False)
 
     else:
-        print("\n--> You need to login first with GOOGLE_EMAIL and GOOGLE_APP_PASSWORD that you need to set in the .env file.\n")
-        exit(1)
+        logger.info("\n--> You need to login first with GOOGLE_EMAIL and GOOGLE_APP_PASSWORD\n")
+        return False
 
     return api
-
-# def login(api):
-#     if GPAPI_GSFID and GPAPI_AUTH_TOKEN:
-#         print("\n--> Attempting to login with the GPAPI_GSFID and GPAPI_GSFID from the .env file\n")
-#         api.login(None, None, GPAPI_GSFID, GPAPI_AUTH_TOKEN)
-#     elif GOOGLE_APP_PASSWORD:
-#         print('\n--> Logging in with GOOGLE_EMAIL and GOOGLE_APP_PASSWORD from the .env file\n')
-#         api.login(GOOGLE_EMAIL, GOOGLE_APP_PASSWORD, None, None)
-#         print("GPAPI_GSFID: " + str(api.gsfId))
-#         print("GPAPI_AUTH_TOKEN: " + str(api.authSubToken))
-#     else:
-#         print("\n--> You need to login first with GOOGLE_EMAIL and GOOGLE_APP_PASSWORD that you need to set in the .env file.\n")
-#         exit(1)
