@@ -8,6 +8,8 @@ import click
 import download
 import accounts
 import encryption
+import categories
+import search
 
 LOCALE = os.environ["GPAPI_LOCALE"]
 TIMEZONE = os.environ["GPAPI_TIMEZONE"]
@@ -140,7 +142,58 @@ def decrypt_string(text):
     result = encryption.decrypt_string(text)
     print(result)
 
-@cli.command(help="Downloads the give APK ID")
+@cli.command(help="List all categories in the Google Play store")
+def list_categories():
+    result = categories.browse()
+
+    if 'error' in result:
+        echoError(result['error'])
+        exit(1)
+
+    if 'file' in result:
+        echoSuccess("List of categories saved to: ../data/categories.json")
+        exit(0)
+
+@cli.command(help="List a category rank in the Google Play store")
+@click.option("--category-id", required=True, help="The Category ID to list the ranks for, e.g. FINANCE")
+def list_ranks(category_id):
+    result = categories.list_ranks(category_id)
+
+    if 'error' in result:
+        echoError(result['error'])
+        exit(1)
+
+    if 'file' in result:
+        echoSuccess("List of category ranks saved to: ../data/categories-ranks.json")
+        exit(0)
+
+@cli.command(help="List a category in the Google Play store")
+@click.option("--category-id", required=True, help="The Category ID to list the ranks for, e.g. FINANCE")
+def list(category_id):
+    result = categories.list(category_id)
+
+    if 'error' in result:
+        echoError(result['error'])
+        exit(1)
+
+    if 'file' in result:
+        echoSuccess("List of category ranks saved to: ../data/categories-ranks.json")
+        exit(0)
+
+@cli.command(help="Search for a term in the Google Play store")
+@click.option("--term", required=True, help="The term to search for, e.g. fintech")
+def find(term):
+    result = search.lookup(term)
+
+    if 'error' in result:
+        echoError(result['error'])
+        exit(1)
+
+    if 'file' in result:
+        echoSuccess(f"Search result saved to: {result['file']}")
+        exit(0)
+
+@cli.command(help="Downloads the APK for the given APP ID")
 @click.option("--app-id", required=True, help="The APP ID to download, e.g. com.example.app")
 def download_apk(app_id):
     result = download.downloadAppApk(app_id)
@@ -151,6 +204,20 @@ def download_apk(app_id):
 
     echoSuccess('Downloaded successfully the App APK...')
     exit(0)
+
+@cli.command(help="Download all Apps APKs for the given category ID.")
+@click.option("--category-id", required=True, help="The Category ID to download the APKs, e.g. FINANCE")
+def download_category_apks(category_id):
+    result = download.dowanloadApksByCategory(category_id)
+
+    if 'error' in result:
+        echoError(result['error'])
+        exit(1)
+
+    if 'dir' in result:
+        echoSuccess(f"APKS downloaded to: {result['dir']}")
+        exit(0)
+
 
 @cli.command(help="List all device hardware identifiers")
 def devices():

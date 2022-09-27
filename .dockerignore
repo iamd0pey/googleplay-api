@@ -3,3 +3,4 @@ build/
 gpapi.egg-info/
 bin/
 .env
+__pycache__/

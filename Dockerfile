@@ -2,7 +2,7 @@ ARG TAG=3.10
 
 FROM python:${TAG}
 
-ARG CONTAINER_USER="python"
+ARG CONTAINER_USER="developer"
 ARG LANGUAGE_CODE="en"
 ARG COUNTRY_CODE="GB"
 ARG ENCODING="UTF-8"
@@ -44,12 +44,16 @@ ENV LC_ALL "${LOCALIZATION}"
 
 USER ${CONTAINER_USER}
 
+ENV PYTHONPATH=/home/${CONTAINER_USER}/python
+
 WORKDIR /home/${CONTAINER_USER}/workspace
 
 RUN pip3 install 'protobuf<=3.20.1' --force-reinstall
 
 ADD . .
 
-RUN pip3 install .
+RUN pip3 install -r requirements.txt
+
+RUN pip3 install -e .
 
 CMD ["zsh"]

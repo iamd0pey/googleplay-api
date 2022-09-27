@@ -8,11 +8,11 @@ Main() {
   # DEFAULTS
   ##############################################################################
 
-  local IMAGE_NAME=exadra37/gplaycli
+  local IMAGE_NAME=exadra37/googleplay-api-cli
   local VARIANT=debian
   local PYTHON_VERSION="3.7"
   local CONTAINER_USER=$(id -u)
-  local COMMAND="python"
+  local COMMAND="developer"
   local BUILD_PATH=./
   local BACKGROUND_MODE="-it"
   local PORT_MAP="6000:5000"
@@ -70,13 +70,15 @@ Main() {
   ##############################################################################
 
 
+      # --volume "${PWD}"/.local/python-container:/home/developer/python \
   sudo docker run \
       --rm \
       ${BACKGROUND_MODE} \
       --user ${CONTAINER_USER} \
       --publish "127.0.0.1:"${PORT_MAP} \
       --env-file .env \
-      --volume "${PWD}":/home/python/workspace \
+      --volume "${PWD}"/../data:/home/developer/workspace/data/scrapped \
+      --volume "${PWD}":/home/developer/workspace \
       "${IMAGE_NAME}" \
       "${COMMAND}" ${@}
 }

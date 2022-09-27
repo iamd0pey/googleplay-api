@@ -7,6 +7,9 @@ import os
 # import argparse
 import json
 import accounts
+from time import sleep
+from random import randint
+
 
 # GPAPI_GSFID = int(os.environ["GPAPI_GSFID"])
 # GPAPI_AUTH_TOKEN = os.environ["GPAPI_GSFID"]
@@ -22,9 +25,10 @@ GOOGLE_APP_PASSWORD = os.environ["GOOGLE_APP_PASSWORD"]
 
 DOWNLOAD_PATH = os.environ["APK_DOWNLOAD_PATH"]
 
-LOGIN_CREDENTIALS_FILE = os.environ["LOGIN_CREDENTIALS_FILE"]
-# LOGIN_CREDENTIALS_LIST = os.environ["LOGIN_CREDENTIALS_LIST"]
+SLEEP_SECONDS_MIN = 1
+SLEEP_SECONDS_MAX = 3
 
+DOWNLOAD_APKS_LIMIT = 2
 
 def buildApkFilePath(app_id, filename, extension):
     folder = f"{DOWNLOAD_PATH}/{app_id}"
@@ -95,18 +99,40 @@ def downloadApk(api, app_id):
 
     saveSplitsFrom(download, app_id)
 
-def search(api):
-    print("\nSearch suggestion for \"fir\"\n")
-    print(api.searchSuggest("fir"))
+def dowanloadApksByCategory(category_id):
+    filename = f"../data/scrapped/apps/{category_id}.json"
 
-    result = api.search("firefox")
-    for doc in result:
-        if 'docid' in doc:
-            print("doc: {}".format(doc["docid"]))
-        for cluster in doc["child"]:
-            print("\tcluster: {}".format(cluster["docid"]))
-            for app in cluster["child"]:
-                print("\t\tapp: {}".format(app["docid"]))
+    if not os.path.exists(filename):
+        return {'error': f"File not found: {filename}"}
+
+    with open(filename) as file:
+        data = json.load(file)
+
+    app_ids = data['apps'].keys()
+
+    total_apps_ids = len(app_ids)
+
+    # print("\napps_ids:", app_ids)
+    print("\ntotal_apps_ids:", total_apps_ids)
+
+    apks_downloaded = []
+
+    for index, app_id in enumerate(app_ids):
+        if DOWNLOAD_APKS_LIMIT > 0 and index > DOWNLOAD_APKS_LIMIT:
+            return {'apks_downloaded': apks_downloaded}
+
+        print(f"\n\n---> Starting Downloading APK for the APP: {app_id} <---")
+
+        downloadAppApk(app_id)
+
+        apks_downloaded.append(app_id)
+
+        # keep a slow pace to avoid being blacklisted.
+        sleep(randint(SLEEP_SECONDS_MIN, SLEEP_SECONDS_MAX))
+
+
+    return {'apks_downloaded': apks_downloaded}
+
 
 # def main():
 

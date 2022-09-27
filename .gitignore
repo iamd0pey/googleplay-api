@@ -17,3 +17,4 @@ local_example.py
 gpapi/googleplay_pb2.py
 cli/google_accounts.json
 *encryption.key
+data/

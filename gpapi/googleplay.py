@@ -365,7 +365,7 @@ class GooglePlayAPI(object):
 
         message = googleplay_pb2.ResponseWrapper.FromString(response.content)
         if message.commands.displayErrorMessage != "":
-            raise RequestError(message.commands.displayErrorMessage)
+            raise RequestError(f"STATUS_CODE: {response.status_code} URL: {response.request.url} MESSAGE: {message.commands.displayErrorMessage}")
 
         return message
 

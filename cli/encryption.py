@@ -3,7 +3,8 @@ from cryptography.fernet import Fernet
 import os
 import base64
 
-ENCRYPTION_KEY_FILE = os.environ["ENCRYPTION_KEY_FILE"]
+# ENCRYPTION_KEY_FILE = os.environ["ENCRYPTION_KEY_FILE"]
+ENCRYPTION_KEY_FILE = '../data/.encryption.key'
 
 def generate_encryption_key():
     key = Fernet.generate_key()

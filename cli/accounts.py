@@ -1,4 +1,4 @@
-from gpapi.googleplay import GooglePlayAPI, config
+from gpapi.googleplay import GooglePlayAPI, RequestError, config
 
 import sys
 import os
@@ -11,7 +11,8 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 logger.addHandler(logging.StreamHandler()) #Exporting logs to the screen
 
-GOOGLE_ACCOUNTS_FILE = os.environ["GOOGLE_ACCOUNTS_FILE"]
+# GOOGLE_ACCOUNTS_FILE = os.environ["GOOGLE_ACCOUNTS_FILE"]
+GOOGLE_ACCOUNTS_FILE = '../data/google_accounts.json'
 
 
 def getRandomDeviceCodeName():
@@ -37,22 +38,22 @@ def save(account, validate_login=True):
     if not 'plain_text_password' in account:
         return None
 
-    if validate_login and not login(account):
+    api = login(account)
+
+    if api == False:
         return False
 
-    print('account: ', account)
+    if api.gsfId:
+        account['gsfId'] = api.gsfId
+
+    if api.authSubToken:
+        account['authSubToken'] = encryption.base64_encrypt_string(api.authSubToken)
 
     if 'plain_text_password' in account:
         account['password'] = encryption.base64_encrypt_string(account['plain_text_password'])
         account.pop('plain_text_password')
 
-    if 'api.gsfId' in account:
-        account['gsfId'] = account['api.gsfId']
-        account.pop('api.gsfId')
-
-    if 'api.authSubToken' in account:
-        account['authSubToken'] = encryption.base64_encrypt_string(account['api.authSubToken'])
-        account.pop('api.authSubToken')
+    print('account: ', account)
 
     accounts = getAccounts()
 
@@ -133,28 +134,29 @@ def random_login(device_code_name = None):
 
 
 def login(account):
-    api = GooglePlayAPI(account['locale'], account['timezone'], account['device_code_name'])
+    try:
+        api = GooglePlayAPI(account['locale'], account['timezone'], account['device_code_name'])
 
-    if ('gsfId' in account and 'authSubToken' in account) and (account['gsfId'] and account['authSubToken']):
-        logger.info("\n--> Attempting to login with the GPAPI_GSFID and GPAPI_GSFID\n")
+        if ('gsfId' in account and 'authSubToken' in account) and (account['gsfId'] and account['authSubToken']):
+            logger.info(f"\n--> Attempting to login via GPAPI_GSFID and GPAPI_GSFID on device {account['device_code_name']} with account {account['email']}\n")
 
-        gsfId = account['gsfId'][0]
-        authSubToken = encryption.base64_decrypt_string(account['authSubToken'])
+            gsfId = account['gsfId']
+            authSubToken = encryption.base64_decrypt_string(account['authSubToken'])
 
-        api.login(None, None, gsfId, authSubToken)
+            api.login(None, None, gsfId, authSubToken)
 
-    elif 'plain_text_password' in account:
-        logger.info('\n--> Logging in with GOOGLE_EMAIL and GOOGLE_APP_PASSWORD\n')
+        elif 'plain_text_password' in account:
+            logger.info(f"\n--> Attempting to login via email/password combo on device {account['device_code_name']} with account {account['email']}\n")
 
-        api.login(account['email'], account['plain_text_password'], None, None)
+            api.login(account['email'], account['plain_text_password'], None, None)
 
-        account['api.gsfId'] = api.gsfId,
-        account['api.authSubToken'] = api.authSubToken
+        else:
+            logger.info("\n--> You need to login first with GOOGLE_EMAIL and GOOGLE_APP_PASSWORD\n")
+            return False
 
-        save(account, False)
-
-    else:
-        logger.info("\n--> You need to login first with GOOGLE_EMAIL and GOOGLE_APP_PASSWORD\n")
+    except RequestError as e:
+        # print(dir(e))
+        logger.error(e)
         return False
 
     return api
