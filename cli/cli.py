@@ -193,13 +193,40 @@ def find(term):
         echoSuccess(f"Search result saved to: {result['file']}")
         exit(0)
 
-@cli.command(help="Downloads the APK for the given APP ID")
+@cli.command(help="Downloads the App APK with a random device and Google account")
 @click.option("--app-id", required=True, help="The APP ID to download, e.g. com.example.app")
 def download_apk(app_id):
-    result = download.downloadAppApk(app_id)
+    result = download.downloadApkWithRandomLogin(app_id)
 
-    if result == False:
-        echoError('Failed to download the App APK...')
+    if 'login_failed' in result:
+        echoError(f"Failed to login for device {result['device_code_name']} with email {result['email']}")
+        exit(1)
+
+    if 'download_failed' in result:
+        echoError(f"Failed to download APK for device {result['device_code_name']} with email {result['email']}")
+        exit(1)
+
+    echoSuccess('Downloaded successfully the App APK...')
+    exit(0)
+
+@cli.command(help="Downloads the App APK for a specific device and Google account")
+@click.option("--app-id", required=True, help="The APP ID to download, e.g. com.example.app")
+@click.option("--device", required=True, help="The device code name, e.g angler. [default: random]")
+@click.option("--email", required=True, help="The email for your device Google account")
+def download_device_apk(app_id, device, email):
+    result = download.downloadApkForDevice(app_id, device, email)
+    print(result)
+
+    if 'error' in result:
+        echoError(result['error'])
+        exit(1)
+
+    if 'login_failed' in result and result['login_failed'] == True:
+        echoError(f"Failed to login for device {result['metadata']['device_code_name']} with email {result['metadata']['email']}")
+        exit(1)
+
+    if 'download_failed' in result and result['download_failed'] == True:
+        echoError(f"Failed to download APK for device {result['metadata']['device_code_name']} with email {result['metadata']['email']}")
         exit(1)
 
     echoSuccess('Downloaded successfully the App APK...')
@@ -216,6 +243,7 @@ def download_category_apks(category_id):
 
     if 'dir' in result:
         echoSuccess(f"APKS downloaded to: {result['dir']}")
+        click.echo(result['progress'])
         exit(0)
 
 

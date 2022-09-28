@@ -95,8 +95,18 @@ def login_for_device(device_code_name, email):
     accounts = getAccountsForDevice(device_code_name)
 
     if accounts is None:
-        logger.error(f"\nAccount not found for device code name: {device_code_name}")
-        return False
+        message = f"Account not found for device code name: {device_code_name}"
+        logger.error(message)
+
+        return {
+            "error": {
+                'message': message,
+                'metadata': {
+                    'email': email,
+                    'device_code_name': device_code_name,
+                }
+            }
+        }
 
     return {
         "account": accounts[email],
@@ -138,7 +148,7 @@ def login(account):
         api = GooglePlayAPI(account['locale'], account['timezone'], account['device_code_name'])
 
         if ('gsfId' in account and 'authSubToken' in account) and (account['gsfId'] and account['authSubToken']):
-            logger.info(f"\n--> Attempting to login via GPAPI_GSFID and GPAPI_GSFID on device {account['device_code_name']} with account {account['email']}\n")
+            print(f"\n--> Attempting to login via GPAPI_GSFID and GPAPI_GSFID on device {account['device_code_name']} with account {account['email']}\n")
 
             gsfId = account['gsfId']
             authSubToken = encryption.base64_decrypt_string(account['authSubToken'])

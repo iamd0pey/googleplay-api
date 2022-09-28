@@ -365,7 +365,7 @@ class GooglePlayAPI(object):
 
         message = googleplay_pb2.ResponseWrapper.FromString(response.content)
         if message.commands.displayErrorMessage != "":
-            raise RequestError(f"STATUS_CODE: {response.status_code} URL: {response.request.url} MESSAGE: {message.commands.displayErrorMessage}")
+            raise RequestError(f"SESSION ERROR -> STATUS_CODE: {response.status_code} URL: {response.request.url} MESSAGE: {message.commands.displayErrorMessage}")
 
         return message
 
@@ -615,13 +615,15 @@ class GooglePlayAPI(object):
         headers = self.getHeaders()
         if downloadToken is not None:
             params['dtok'] = downloadToken
-        response = self.session.get(DELIVERY_URL, headers=headers,
+        session = self.session.get(DELIVERY_URL, headers=headers,
                                 params=params, verify=ssl_verify,
                                 timeout=60,
                                 proxies=self.proxies_config)
-        response = googleplay_pb2.ResponseWrapper.FromString(response.content)
+        response = googleplay_pb2.ResponseWrapper.FromString(session.content)
         if response.commands.displayErrorMessage != "":
-            raise RequestError(response.commands.displayErrorMessage)
+            # raise RequestError(response.commands.displayErrorMessage)
+            raise RequestError(f"delivery() -> STATUS_CODE: {session.status_code} URL: {session.request.url} MESSAGE: {response.commands.displayErrorMessage}")
+
         elif response.payload.deliveryResponse.appDeliveryData.downloadUrl == "":
             raise RequestError('App not purchased')
         else:
@@ -693,11 +695,13 @@ class GooglePlayAPI(object):
                                  timeout=60,
                                  proxies=self.proxies_config)
 
-        response = googleplay_pb2.ResponseWrapper.FromString(response.content)
-        if response.commands.displayErrorMessage != "":
-            raise RequestError(response.commands.displayErrorMessage)
+        result = googleplay_pb2.ResponseWrapper.FromString(response.content)
+
+        if result.commands.displayErrorMessage != "":
+            # raise RequestError(response.commands.displayErrorMessage)
+            raise RequestError(f"download() -> STATUS_CODE: {response.status_code} URL: {response.request.url} MESSAGE: {result.commands.displayErrorMessage}")
         else:
-            dlToken = response.payload.buyResponse.downloadToken
+            dlToken = result.payload.buyResponse.downloadToken
             return self.delivery(packageName, versionCode, offerType, dlToken,
                                  expansion_files=expansion_files)
 
@@ -714,9 +718,11 @@ class GooglePlayAPI(object):
                                  verify=ssl_verify,
                                  timeout=60,
                                  proxies=self.proxies_config)
-        response = googleplay_pb2.ResponseWrapper.FromString(response.content)
-        if response.commands.displayErrorMessage != "":
-            raise RequestError(response.commands.displayErrorMessage)
+        result = googleplay_pb2.ResponseWrapper.FromString(response.content)
+        if result.commands.displayErrorMessage != "":
+            # raise RequestError(response.commands.displayErrorMessage)
+            raise RequestError(f"log() -> STATUS_CODE: {response.status_code} URL: {response.request.url} MESSAGE: {result.commands.displayErrorMessage}")
+
 
     def toc(self):
         response = self.session.get(TOC_URL,
