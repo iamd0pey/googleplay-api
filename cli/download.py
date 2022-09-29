@@ -28,13 +28,13 @@ TIMEZONE = os.environ["GPAPI_TIMEZONE"]
 GOOGLE_EMAIL = os.environ["GOOGLE_EMAIL"]
 GOOGLE_APP_PASSWORD = os.environ["GOOGLE_APP_PASSWORD"]
 
-DOWNLOAD_PATH = os.environ["APK_DOWNLOAD_PATH"]
+# DOWNLOAD_PATH = os.environ["APK_DOWNLOAD_PATH"]
+DOWNLOAD_PATH = '../data/apks'
 
-SLEEP_SECONDS_MIN = 5
-SLEEP_SECONDS_MAX = 10
+SLEEP_SECONDS_MIN = 60
+SLEEP_SECONDS_MAX = 90
 
-DOWNLOAD_APKS_LIMIT = 3
-DOWNLOADS_PROGRESS_PATH = '../data'
+DOWNLOAD_APKS_LIMIT = 30
 DOWNLOADS_PROGRESS_FILENAME = 'downloads-progress.json'
 
 def buildApkFilePath(app_id, category_id, filename, extension):
@@ -132,16 +132,6 @@ def _downloadAppApk(app_id, login, category_id = 'UNCATEGORIZED'):
 
         print(f"--> Download APK for {app_id} on device {device_code_name} with account {email}\n")
 
-        # if _downloadApk(login['api'], app_id, category_id):
-            # download_result['download_failed'] = False
-
-    # return download_result
-
-
-# def _downloadApk(api, app_id, category_id = 'UNCATEGORIZED'):
-
-    # print(vars(api))
-
         try:
             downloaded_file = f"{DOWNLOAD_PATH}/downloaded.json"
 
@@ -152,8 +142,8 @@ def _downloadAppApk(app_id, login, category_id = 'UNCATEGORIZED'):
 
             downloaded = readJsonFile(downloaded_file, default)
 
-            if device_code_name in downloaded['by_device'] and downloaded['by_device'][device_code_name]['app_id'] == app_id:
-                download_result['already_downloaded_for'] = downloaded['by_device'][device_code_name]
+            if device_code_name in downloaded['by_device'] and app_id in downloaded['by_device'][device_code_name]:
+                download_result['already_downloaded_for'] = downloaded['by_device'][device_code_name][app_id]
                 download_result['download_failed'] = True
                 return download_result
 
@@ -171,8 +161,21 @@ def _downloadAppApk(app_id, login, category_id = 'UNCATEGORIZED'):
 
             writeToJsonFile(metadata_file, metadata)
 
-            downloaded['by_device'][device_code_name] = metadata
-            downloaded['by_email'][email] = metadata
+            if not device_code_name in downloaded['by_device']:
+                downloaded['by_device'][device_code_name] = {}
+
+            if not app_id in downloaded['by_device'][device_code_name]:
+                downloaded['by_device'][device_code_name][app_id] = {}
+
+            downloaded['by_device'][device_code_name][app_id] = metadata
+
+            if not email in downloaded['by_email']:
+                downloaded['by_email'][email] = {}
+
+            if not app_id in downloaded['by_email'][email]:
+                downloaded['by_email'][email][app_id] = {}
+
+            downloaded['by_email'][email][app_id] = metadata
 
             writeToJsonFile(downloaded_file, downloaded)
 
@@ -181,7 +184,6 @@ def _downloadAppApk(app_id, login, category_id = 'UNCATEGORIZED'):
             print(f"downloadApk() Exception: {e}")
 
     return download_result
-    # return False
 
 
 def dowanloadApksByCategory(category_id):
@@ -193,27 +195,67 @@ def dowanloadApksByCategory(category_id):
     with open(filename) as file:
         data = json.load(file)
 
-    app_ids = list(data['apps'].keys())
-
-    # total_apps_ids = len(app_ids)
-
-    # print("\napps_ids:", app_ids)
-    # print("\ntotal_apps_ids:", total_apps_ids)
-
-
-    file_path = f"{DOWNLOADS_PROGRESS_PATH}/{category_id}_{DOWNLOADS_PROGRESS_FILENAME}"
-
     default = {
         'category_total': 0,
         'total_downloaded': 0,
         'total_remaining': 0,
         'total_download_failures': 0,
+        'excluded': {
+            'paid_apps': [],
+            'outdated_apps': [],
+            'less_then_1000_installs': [],
+        },
         'download_failures': {},
         'downloaded_app_ids': [],
         'remaining_app_ids': [],
     }
 
+    file_path = f"{DOWNLOAD_PATH}/{category_id}/{DOWNLOADS_PROGRESS_FILENAME}"
+
     progress = readJsonFile(file_path, default)
+
+    app_ids = []
+
+    progress['excluded']['paid_apps'] = []
+    progress['excluded']['outdated_apps'] = []
+    progress['excluded']['less_then_1000_installs'] = []
+
+    for app_id, app in data['apps'].items():
+        if not app['free'] or app['price'] > 0:
+            progress['excluded']['paid_apps'].append(app_id)
+
+            if app_id in progress['remaining_app_ids']:
+                progress['remaining_app_ids'].remove(app_id)
+
+            if app_id in progress['download_failures']:
+                progress['download_failures'].pop(app_id)
+
+            continue
+
+        # 1577836800 => 1 January 2020 00:00:00 GMT+00:00
+        if app['updated'] < 1577836800:
+            progress['excluded']['outdated_apps'].append(app_id)
+
+            if app_id in progress['remaining_app_ids']:
+                progress['remaining_app_ids'].remove(app_id)
+
+            if app_id in progress['download_failures']:
+                progress['download_failures'].pop(app_id)
+
+            continue
+
+        if app['realInstalls'] < 1000:
+            progress['excluded']['less_then_1000_installs'].append(app_id)
+
+            if app_id in progress['remaining_app_ids']:
+                progress['remaining_app_ids'].remove(app_id)
+
+            if app_id in progress['download_failures']:
+                progress['download_failures'].pop(app_id)
+
+            continue
+
+        app_ids.append(app_id)
 
     progress['category_total'] = len(app_ids)
 
@@ -221,10 +263,6 @@ def dowanloadApksByCategory(category_id):
     if progress['total_downloaded'] == 0:
         progress['remaining_app_ids'] = app_ids
         progress['total_remaining'] = progress['category_total']
-
-    # print(type(app_ids))
-    # print(type(progress['remaining_app_ids']))
-    # return
 
     total_to_download = len(progress['remaining_app_ids'])
 
@@ -242,7 +280,7 @@ def dowanloadApksByCategory(category_id):
         else:
             progress['downloaded_app_ids'].append(app_id)
 
-        # Not matter if downloaded succeeded or failed we want to remove the app
+        # No matter if downloaded succeeded or failed we want to remove the app
         # id  and update the totals accordingly.
         progress['remaining_app_ids'].remove(app_id)
         progress['total_downloaded'] = len(progress['downloaded_app_ids'])
@@ -260,27 +298,3 @@ def dowanloadApksByCategory(category_id):
         'dir': DOWNLOAD_PATH,
         'progress': progress,
     }
-
-
-# def main():
-
-#     # cli_args = parseCliArgs()
-
-#     print(f"\n---> Started processing for {cli_args['app_id']} <---\n")
-
-#     api = login()
-
-#     # search(api = api)
-
-#     # try:
-#     # /downloadApk(app_id = cli_args["app_id"], api = api)
-#     # except Exception as e:
-#         # print(e)
-#         # exit(1)
-
-#     print(f"\n---> Finished processing for {cli_args['app_id']} <---\n")
-
-# if __name__ == "__main__":
-#     # Run the script from the main directory of the project by using this command:
-#     # pipenv run python -m scripts.crawl_apps_by_developers
-#     main()

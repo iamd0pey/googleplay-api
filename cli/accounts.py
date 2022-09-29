@@ -16,7 +16,11 @@ GOOGLE_ACCOUNTS_FILE = '../data/google_accounts.json'
 
 
 def getRandomDeviceCodeName():
+
+    minimal_android_api_version = 27
+
     devices = config.getDevicesCodenames()
+
     return random.choice(devices)
 
 def getAccounts():
@@ -28,7 +32,7 @@ def getAccounts():
 
 def save(account, validate_login=True):
     if account['device_code_name'] is None:
-        account['device_code_name'] = random.choice(config.getDevicesCodenames())
+        account['device_code_name'] = getRandomDeviceCodeName()
 
     email = account['email']
     device_code_name = account['device_code_name']
@@ -52,8 +56,6 @@ def save(account, validate_login=True):
     if 'plain_text_password' in account:
         account['password'] = encryption.base64_encrypt_string(account['plain_text_password'])
         account.pop('plain_text_password')
-
-    print('account: ', account)
 
     accounts = getAccounts()
 

@@ -1,6 +1,7 @@
 #!/bin/bash
 
-REPO_SRC="https://github.com/yeriomin/play-store-api"
+# REPO_SRC="https://github.com/yeriomin/play-store-api"
+REPO_SRC="https://gitlab.com/AuroraOSS/gplayapi.git"
 REPO_LOCAL="/tmp/psapi"
 RES_DIR="${REPO_LOCAL}/src/main/resources"
 
@@ -13,17 +14,19 @@ if [ ! -d "./gpapi" ]; then
         exit 1
 fi
 
+mkdir -p $REPO_LOCAL
+
 echo "==> Cloning play-store-api repo into $REPO_LOCAL"
-git clone $REPO_SRC $REPO_LOCAL &>/dev/null
+git clone $REPO_SRC $REPO_LOCAL
 
 # clean device.properties file
 echo "" > $DEVS_FILE
 
 for dev in `ls $RES_DIR`; do
         FILE="$RES_DIR/$dev"
-        NAME=`echo $dev | sed -e "s/device-\(.*\).properties/\1/"`
+        NAME=`echo $dev | sed -e "s/\(.*\).properties/\1/"`
         echo "==> appending device data for $NAME"
-        echo "[$NAME]" >> $DEVS_FILE
+        echo -e "\n[$NAME]" >> $DEVS_FILE
         cat $FILE >> $DEVS_FILE
         echo "" >> $DEVS_FILE
 done
