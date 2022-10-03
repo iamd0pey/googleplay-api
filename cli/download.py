@@ -31,10 +31,10 @@ GOOGLE_APP_PASSWORD = os.environ["GOOGLE_APP_PASSWORD"]
 # DOWNLOAD_PATH = os.environ["APK_DOWNLOAD_PATH"]
 DOWNLOAD_PATH = '../data/apks'
 
-SLEEP_SECONDS_MIN = 60
-SLEEP_SECONDS_MAX = 90
+SLEEP_SECONDS_MIN = 120
+SLEEP_SECONDS_MAX = 180
 
-DOWNLOAD_APKS_LIMIT = 30
+DOWNLOAD_APKS_LIMIT = -1
 DOWNLOADS_PROGRESS_FILENAME = 'downloads-progress.json'
 
 def buildApkFilePath(app_id, category_id, filename, extension):
@@ -196,6 +196,7 @@ def dowanloadApksByCategory(category_id):
         data = json.load(file)
 
     default = {
+        'category_id': category_id,
         'category_total': 0,
         'total_downloaded': 0,
         'total_remaining': 0,
@@ -216,6 +217,7 @@ def dowanloadApksByCategory(category_id):
 
     app_ids = []
 
+    progress['category_id'] = category_id
     progress['excluded']['paid_apps'] = []
     progress['excluded']['outdated_apps'] = []
     progress['excluded']['less_then_1000_installs'] = []
