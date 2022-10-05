@@ -8,7 +8,7 @@ import os
 import json
 import accounts
 from time import sleep
-from random import randint
+import random
 
 # import logging
 # log = logging.getLogger()
@@ -36,6 +36,12 @@ SLEEP_SECONDS_MAX = 180
 
 DOWNLOAD_APKS_LIMIT = -1
 DOWNLOADS_PROGRESS_FILENAME = 'downloads-progress.json'
+
+DOWNLOADED_FILE = f"{DOWNLOAD_PATH}/downloaded.json"
+DOWNLOADED_FILE_DEFAULT_KEYS =  {
+    'by_device': {},
+    'by_email': {},
+}
 
 def buildApkFilePath(app_id, category_id, filename, extension):
     folder = f"{DOWNLOAD_PATH}/{category_id}/{app_id}"
@@ -100,13 +106,13 @@ def downloadApkWithRandomLogin(app_id, category_id = 'UNCATEGORIZED'):
     login = accounts.random_login()
     return _downloadAppApk(app_id, login, category_id)
 
-def downloadApkForDevice(app_id, device_code_name, email):
+def downloadApkForDevice(app_id, device_code_name, email, category_id = 'UNCATEGORIZED'):
     login = accounts.login_for_device(device_code_name, email)
 
-    if 'error' in login:
-        return {'error': login['error']}
+    # if 'error' in login:
+    #     return {'error': login['error']}
 
-    return _downloadAppApk(app_id, login)
+    return _downloadAppApk(app_id, login, category_id)
 
 def _downloadAppApk(app_id, login, category_id = 'UNCATEGORIZED'):
     api = login['api']
@@ -130,22 +136,15 @@ def _downloadAppApk(app_id, login, category_id = 'UNCATEGORIZED'):
     if 'api' in login:
         download_result['login_failed'] = False
 
-        print(f"--> Download APK for {app_id} on device {device_code_name} with account {email}\n")
+        print(f"--> Download APK for {app_id} on device {device_code_name} with account {email} for category {category_id}\n")
 
         try:
-            downloaded_file = f"{DOWNLOAD_PATH}/downloaded.json"
+            downloaded = readJsonFile(DOWNLOADED_FILE, DOWNLOADED_FILE_DEFAULT_KEYS)
 
-            default = {
-                'by_device': {},
-                'by_email': {},
-            }
-
-            downloaded = readJsonFile(downloaded_file, default)
-
-            if device_code_name in downloaded['by_device'] and app_id in downloaded['by_device'][device_code_name]:
-                download_result['already_downloaded_for'] = downloaded['by_device'][device_code_name][app_id]
-                download_result['download_failed'] = True
-                return download_result
+            # if device_code_name in downloaded['by_device'] and app_id in downloaded['by_device'][device_code_name]:
+            #     download_result['already_downloaded_for'] = downloaded['by_device'][device_code_name][app_id]
+            #     download_result['download_failed'] = True
+            #     return download_result
 
             download = api.download(app_id)
 
@@ -177,7 +176,7 @@ def _downloadAppApk(app_id, login, category_id = 'UNCATEGORIZED'):
 
             downloaded['by_email'][email][app_id] = metadata
 
-            writeToJsonFile(downloaded_file, downloaded)
+            writeToJsonFile(DOWNLOADED_FILE, downloaded)
 
         except Exception as e:
             # raise(e)
@@ -272,7 +271,7 @@ def dowanloadApksByCategory(category_id):
         if DOWNLOAD_APKS_LIMIT > 0 and index > DOWNLOAD_APKS_LIMIT:
             return {'progress': progress}
 
-        print(f"\n\n---> Starting Downloading ({index}/{total_to_download}) APK for APP: {app_id} <---")
+        print(f"\n\n---> Starting Downloading ({index}/{total_to_download}) APK for {app_id} on category {category_id} <---")
 
         result = downloadApkWithRandomLogin(app_id, category_id)
 
@@ -293,10 +292,103 @@ def dowanloadApksByCategory(category_id):
         writeToJsonFile(file_path, progress)
 
         # keep a slow pace to avoid being blacklisted.
-        sleep(randint(SLEEP_SECONDS_MIN, SLEEP_SECONDS_MAX))
+        sleep(random.randint(SLEEP_SECONDS_MIN, SLEEP_SECONDS_MAX))
 
 
     return {
         'dir': DOWNLOAD_PATH,
         'progress': progress,
+    }
+
+
+def fixDownloadedApksByCategory(category_id):
+    default = {
+        'category_id': category_id,
+        'category_total': 0,
+        'total_downloaded': 0,
+        'total_remaining': 0,
+        'total_download_failures': 0,
+        'download_failures': {},
+        'downloaded_app_ids': [],
+        'remaining_app_ids': [],
+    }
+
+    progress_file_path = f"{DOWNLOAD_PATH}/{category_id}/{DOWNLOADS_PROGRESS_FILENAME}"
+    fixed_progress_file_path = f"{DOWNLOAD_PATH}/{category_id}/fixed-{DOWNLOADS_PROGRESS_FILENAME}"
+
+    downloaded = readJsonFile(DOWNLOADED_FILE, DOWNLOADED_FILE_DEFAULT_KEYS)
+
+    progress = readJsonFile(progress_file_path, default)
+    fixed_app_ids = readJsonFile(fixed_progress_file_path, default)
+
+    fix_app_ids = []
+
+    progress['category_id'] = category_id
+
+    for app_id in progress['downloaded_app_ids']:
+        apks_path = f"{DOWNLOAD_PATH}/{category_id}/{app_id}"
+        print('apks_path: ', apks_path)
+
+        files = os.listdir(apks_path)
+
+        if 'base.apk' not in files:
+            print('files: ', files)
+            fix_app_ids.append(app_id)
+
+    fixed_app_ids['category_total'] = progress['category_total']
+    fixed_app_ids['remaining_app_ids'] = fix_app_ids
+
+    total_to_download = len(fix_app_ids)
+
+    for index, app_id in enumerate(fixed_app_ids['remaining_app_ids']):
+        if DOWNLOAD_APKS_LIMIT > 0 and index > DOWNLOAD_APKS_LIMIT:
+            return {'progress': fixed_app_ids}
+
+        print(f"\n\n---> Starting fixing APK Download ({index}/{total_to_download}) for {app_id} on category {category_id} <---")
+
+        app = {}
+
+        # When exists, we need to get the device account used for the download,
+        # otherwise we risk not being able to download the apk due to account or
+        # device restrictions and/or incompatibilities.
+        for device_id, apps in downloaded['by_device'].items():
+            for package_name, app_data in apps.items():
+                if package_name == app_id and app_data['category_id'] == category_id:
+                    device_accounts = accounts.getAccountsForDevice(app_data['device_code_name'])
+                    print('device_id: ', device_id)
+                    print('app_data: ', app_data)
+
+                    if device_accounts is None:
+                        device_account = accounts.getRandomAccount()
+                        print('device_account1: ', device_account)
+                    else:
+                        email = random.choice(list(device_accounts))
+                        device_account =  device_accounts[email]
+                        print('device_account2: ', device_account)
+
+                    break
+
+        result = downloadApkForDevice(app_id, device_account['device_code_name'], device_account['email'], category_id)
+
+        if result['login_failed'] == True or result['download_failed'] == True:
+            fixed_app_ids['download_failures'][app_id] = result
+            fixed_app_ids['total_download_failures'] = len(fixed_app_ids['download_failures'])
+        else:
+            fixed_app_ids['downloaded_app_ids'].append(app_id)
+
+        # No matter if downloaded succeeded or failed we want to remove the app
+        # id  and update the totals accordingly.
+        fixed_app_ids['remaining_app_ids'].remove(app_id)
+        fixed_app_ids['total_downloaded'] = len(fixed_app_ids['downloaded_app_ids'])
+        fixed_app_ids['total_remaining'] = len(fixed_app_ids['remaining_app_ids'])
+
+        writeToJsonFile(fixed_progress_file_path, fixed_app_ids)
+
+        # keep a slow pace to avoid being blacklisted.
+        sleep(random.randint(SLEEP_SECONDS_MIN, SLEEP_SECONDS_MAX))
+
+
+    return {
+        'dir': DOWNLOAD_PATH,
+        'progress': fixed_app_ids,
     }

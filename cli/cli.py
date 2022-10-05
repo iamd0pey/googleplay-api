@@ -246,6 +246,20 @@ def download_category_apks(category_id):
         click.echo(result['progress'])
         exit(0)
 
+@cli.command(help="Fix already downloaded Apps APKs for the given category ID.")
+@click.option("--category-id", required=True, help="The Category ID to fix the downloaded APKs, e.g. FINANCE")
+def download_fix_category_apks(category_id):
+    result = download.fixDownloadedApksByCategory(category_id)
+
+    if 'error' in result:
+        echoError(result['error'])
+        exit(1)
+
+    if 'dir' in result:
+        echoSuccess(f"APKS downloaded to: {result['dir']}")
+        click.echo(result['progress'])
+        exit(0)
+
 
 @cli.command(help="List all device hardware identifiers")
 def devices():

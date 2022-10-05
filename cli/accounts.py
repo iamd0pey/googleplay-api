@@ -17,11 +17,10 @@ GOOGLE_ACCOUNTS_FILE = '../data/google_accounts.json'
 
 def getRandomDeviceCodeName():
 
-    minimal_android_api_version = 27
-
     devices = config.getDevicesCodenames()
 
     return random.choice(devices)
+
 
 def getAccounts():
     if not os.path.exists(GOOGLE_ACCOUNTS_FILE):
@@ -29,6 +28,27 @@ def getAccounts():
 
     with open(GOOGLE_ACCOUNTS_FILE) as file:
         return json.load(file)
+
+
+def getAccountsForDevice(device_code_name):
+    accounts = getAccounts()
+
+    if device_code_name in accounts['by_device']:
+        return accounts['by_device'][device_code_name]['accounts']
+
+    return None
+
+
+def getRandomAccount():
+
+    accounts = getAccounts()
+
+    device_code_name = random.choice(list(accounts['by_device']))
+
+    email = random.choice(list(accounts['by_device'][device_code_name]['accounts']))
+
+    return accounts['by_device'][device_code_name]['accounts'][email]
+
 
 def save(account, validate_login=True):
     if account['device_code_name'] is None:
@@ -82,15 +102,6 @@ def save(account, validate_login=True):
         json.dump(accounts, file, indent = 4)
 
     return True
-
-
-def getAccountsForDevice(device_code_name):
-    accounts = getAccounts()
-
-    if device_code_name in accounts['by_device']:
-        return accounts['by_device'][device_code_name]['accounts']
-
-    return None
 
 
 def login_for_device(device_code_name, email):
