@@ -221,7 +221,9 @@ def dowanloadApksByCategory(category_id):
     progress['excluded']['outdated_apps'] = []
     progress['excluded']['less_then_1000_installs'] = []
 
-    for app_id, app in data['apps'].items():
+    apps = data['apps'].items()
+
+    for app_id, app in apps:
         if not app['free'] or app['price'] > 0:
             progress['excluded']['paid_apps'].append(app_id)
 
@@ -267,7 +269,9 @@ def dowanloadApksByCategory(category_id):
 
     total_to_download = len(progress['remaining_app_ids'])
 
-    for index, app_id in enumerate(progress['remaining_app_ids']):
+    remaining_app_ids = enumerate(progress['remaining_app_ids'])
+
+    for index, app_id in remaining_app_ids:
         if DOWNLOAD_APKS_LIMIT > 0 and index > DOWNLOAD_APKS_LIMIT:
             return {'progress': progress}
 
@@ -340,7 +344,9 @@ def fixDownloadedApksByCategory(category_id):
 
     total_to_download = len(fix_app_ids)
 
-    for index, app_id in enumerate(fixed_app_ids['remaining_app_ids']):
+    remaining_app_ids = enumerate(fixed_app_ids['remaining_app_ids'])
+
+    for index, app_id in remaining_app_ids:
         if DOWNLOAD_APKS_LIMIT > 0 and index > DOWNLOAD_APKS_LIMIT:
             return {'progress': fixed_app_ids}
 
@@ -348,10 +354,12 @@ def fixDownloadedApksByCategory(category_id):
 
         app = {}
 
+        device_apps = downloaded['by_device'].items()
+
         # When exists, we need to get the device account used for the download,
         # otherwise we risk not being able to download the apk due to account or
         # device restrictions and/or incompatibilities.
-        for device_id, apps in downloaded['by_device'].items():
+        for device_id, apps in device_apps:
             for package_name, app_data in apps.items():
                 if package_name == app_id and app_data['category_id'] == category_id:
                     device_accounts = accounts.getAccountsForDevice(app_data['device_code_name'])
