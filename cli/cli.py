@@ -241,9 +241,12 @@ def download_category_apks(category_id):
         echoError(result['error'])
         exit(1)
 
-    if 'dir' in result:
+    if 'progress' in result:
         echoSuccess(f"APKS downloaded to: {result['dir']}")
-        click.echo(result['progress'])
+        click.echo(f"category total: {result['progress']['category_total']}")
+        click.echo(f"total downloaded: {result['progress']['total_downloaded']}")
+        click.echo(f"total remaining: {result['progress']['total_remaining']}")
+        click.echo(f"total download failures: {result['progress']['total_download_failures']}")
         exit(0)
 
 @cli.command(help="Fix already downloaded Apps APKs for the given category ID.")
@@ -255,9 +258,12 @@ def download_fix_category_apks(category_id):
         echoError(result['error'])
         exit(1)
 
-    if 'dir' in result:
+    if 'progress' in result:
         echoSuccess(f"APKS downloaded to: {result['dir']}")
-        click.echo(result['progress'])
+        click.echo(f"category total: {result['progress']['category_total']}")
+        click.echo(f"total downloaded: {result['progress']['total_downloaded']}")
+        click.echo(f"total remaining: {result['progress']['total_remaining']}")
+        click.echo(f"total download failures: {result['progress']['total_download_failures']}")
         exit(0)
 
 
