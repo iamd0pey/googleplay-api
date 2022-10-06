@@ -43,6 +43,12 @@ DOWNLOADED_FILE_DEFAULT_KEYS =  {
     'by_email': {},
 }
 
+def randomSleep():
+    # keep a slow pace to avoid being blacklisted.
+    seconds = random.randint(SLEEP_SECONDS_MIN, SLEEP_SECONDS_MAX)
+    print_(f"Sleeping for {seconds} seconds...")
+    sleep(seconds)
+
 def buildApkFilePath(app_id, category_id, filename, extension):
     folder = f"{DOWNLOAD_PATH}/{category_id}/{app_id}"
 
@@ -296,8 +302,7 @@ def dowanloadApksByCategory(category_id):
         writeToJsonFile(file_path, progress)
 
         # keep a slow pace to avoid being blacklisted.
-        sleep(random.randint(SLEEP_SECONDS_MIN, SLEEP_SECONDS_MAX))
-
+        randomSleep()
 
     return {
         'dir': DOWNLOAD_PATH,
@@ -393,8 +398,7 @@ def fixDownloadedApksByCategory(category_id):
         writeToJsonFile(fixed_progress_file_path, fixed_app_ids)
 
         # keep a slow pace to avoid being blacklisted.
-        sleep(random.randint(SLEEP_SECONDS_MIN, SLEEP_SECONDS_MAX))
-
+        randomSleep()
 
     return {
         'dir': DOWNLOAD_PATH,
