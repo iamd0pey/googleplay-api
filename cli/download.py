@@ -46,8 +46,11 @@ DOWNLOADED_FILE_DEFAULT_KEYS =  {
 def randomSleep():
     # keep a slow pace to avoid being blacklisted.
     seconds = random.randint(SLEEP_SECONDS_MIN, SLEEP_SECONDS_MAX)
-    print_(f"Sleeping for {seconds} seconds...")
-    sleep(seconds)
+
+    while seconds > 0:
+        print(f"\tSleeping for {seconds} seconds...", end="\r")
+        sleep(1)
+        seconds -= 1
 
 def buildApkFilePath(app_id, category_id, filename, extension):
     folder = f"{DOWNLOAD_PATH}/{category_id}/{app_id}"
