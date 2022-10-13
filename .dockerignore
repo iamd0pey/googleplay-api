@@ -4,3 +4,4 @@ gpapi.egg-info/
 bin/
 .env
 __pycache__/
+data/
