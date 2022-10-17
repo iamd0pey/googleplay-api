@@ -9,6 +9,7 @@ import download
 import accounts
 import encryption
 import categories
+import sensortower
 import search
 
 LOCALE = os.environ["GPAPI_LOCALE"]
@@ -165,6 +166,21 @@ def list_ranks(category_id):
 
     if 'file' in result:
         echoSuccess("List of category ranks saved to: ../data/categories-ranks.json")
+        exit(0)
+
+
+@cli.command(help="List the top free in a category by country on the Google Play store")
+@click.option("--category-id", required=True, help="The Category ID to list the ranks for, e.g. FINANCE")
+@click.option("--country", required=True, help="The country to list the category ranks, e.g. US")
+def list_top_free(category_id, country):
+    result = sensortower.list_top_free(category_id, country)
+
+    if 'error' in result:
+        echoError(result['error'])
+        exit(1)
+
+    if 'file' in result:
+        echoSuccess(f"Top free apps for category {category_id} saved to: {result['file']}")
         exit(0)
 
 @cli.command(help="List a category in the Google Play store")
