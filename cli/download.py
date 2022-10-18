@@ -31,16 +31,28 @@ GOOGLE_APP_PASSWORD = os.environ["GOOGLE_APP_PASSWORD"]
 # DOWNLOAD_PATH = os.environ["APK_DOWNLOAD_PATH"]
 DOWNLOAD_PATH = '../data/apks'
 
-SLEEP_SECONDS_MIN = 120
-SLEEP_SECONDS_MAX = 180
+SLEEP_SECONDS_MIN = 600
+SLEEP_SECONDS_MAX = 900
 
 DOWNLOAD_APKS_LIMIT = -1
 DOWNLOADS_PROGRESS_FILENAME = 'downloads-progress.json'
+DOWNLOADS_PROGRESS_DIFF_FILENAME = 'downloads-progress-diff.json'
 
 DOWNLOADED_FILE = f"{DOWNLOAD_PATH}/downloaded.json"
 DOWNLOADED_FILE_DEFAULT_KEYS =  {
     'by_device': {},
     'by_email': {},
+}
+
+DEVICES = {
+    'GB': [
+        'op_5t',
+        'op_8_pro',
+    ],
+    'US': [
+        'op_7t',
+        'rm_note_5',
+    ],
 }
 
 def randomSleep():
@@ -123,6 +135,17 @@ def downloadApkForDevice(app_id, device_code_name, email, category_id = 'UNCATEG
 
     return _downloadAppApk(app_id, login, category_id)
 
+def downloadApkForCountryDevice(app_id, country_code, email, category_id = 'UNCATEGORIZED'):
+
+    device_code_name = random.choice(DEVICES[country_code.upper()])
+
+    login = accounts.login_for_device(device_code_name, email)
+
+    if 'error' in login:
+        raise login['error']
+
+    return _downloadAppApk(app_id, login, category_id)
+
 def _downloadAppApk(app_id, login, category_id = 'UNCATEGORIZED'):
     api = login['api']
     email = login['account']['email']
@@ -138,6 +161,7 @@ def _downloadAppApk(app_id, login, category_id = 'UNCATEGORIZED'):
     download_result = {
         'login_failed': True,
         'download_failed': True,
+        'exception': None,
         'metadata': metadata,
         'already_downloaded_for': {},
     }
@@ -189,7 +213,9 @@ def _downloadAppApk(app_id, login, category_id = 'UNCATEGORIZED'):
 
         except Exception as e:
             # raise(e)
-            print(f"downloadApk() Exception: {e}")
+            message = f"downloadApk() Exception: {e}"
+            print(message)
+            download_result['exception'] = message
 
     return download_result
 
@@ -406,4 +432,69 @@ def fixDownloadedApksByCategory(category_id):
     return {
         'dir': DOWNLOAD_PATH,
         'progress': fixed_app_ids,
+    }
+
+def downloadApksFromDiff(diff_file, email):
+
+    diff = readJsonFile(diff_file, {})
+
+    # print(diff)
+
+    country_code = diff['country'].upper()
+    category_id = diff['category'].upper()
+    date = diff['date']
+
+    # progress_file = f"{DOWNLOAD_PATH}/{category_id}/{DOWNLOADS_PROGRESS_FILENAME}"
+    progress_diff_file = f"{DOWNLOAD_PATH}/{category_id}/{country_code}-{date}-{DOWNLOADS_PROGRESS_DIFF_FILENAME}"
+
+    default = {
+        'country': country_code,
+        'category_id': category_id,
+        'date': date,
+        'category_total': 0,
+        'total_downloaded': 0,
+        'total_remaining': 0,
+        'total_download_failures': 0,
+        'excluded': {
+            'paid_apps': [],
+            'outdated_apps': [],
+            'less_then_1000_installs': [],
+        },
+        'download_failures': {},
+        'downloaded_app_ids': [],
+        'remaining_app_ids': diff['in_download_failures'] + diff['to_download'],
+    }
+
+    progress = readJsonFile(progress_diff_file, default)
+
+    # progress['remaining_app_ids'] = diff['to_download']
+    print("\n---> Starting to download apks in the diff for remaining downloads")
+
+    for app_id in  progress['remaining_app_ids'][:]:
+
+        result = downloadApkForCountryDevice(app_id, country_code, email, category_id)
+
+        if result['login_failed'] == True or result['download_failed'] == True:
+            progress['download_failures'][app_id] = result
+            progress['total_download_failures'] = len(progress['download_failures'])
+        else:
+            progress['downloaded_app_ids'].append(app_id)
+
+        # No matter if downloaded succeeded or failed we want to remove the app
+        # id  and update the totals accordingly.
+        progress['remaining_app_ids'].remove(app_id)
+        progress['total_downloaded'] = len(progress['downloaded_app_ids'])
+        progress['total_remaining'] = len(progress['remaining_app_ids'])
+
+        # print("\n-> PROGRESS: ", progress)
+
+        writeToJsonFile(progress_diff_file, progress)
+
+        # keep a slow pace to avoid being blacklisted.
+        randomSleep()
+
+
+    return {
+        'dir': DOWNLOAD_PATH,
+        'progress': progress,
     }

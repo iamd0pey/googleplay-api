@@ -5,11 +5,12 @@ import requests
 
 CATEGORY_URL = "https://app.sensortower.com/api/android/rankings/get_category_rankings"
 
-def list_top_free(category, country, limit=200, offset=0):
+def list_top_free(category, country, date=None, limit=200, offset=0):
 
-    today = date.today().isoformat()
+    if not date:
+        date = date.today().isoformat()
 
-    url = f"{CATEGORY_URL}?category={category.lower()}&country={country.upper()}&date={today}T00%3A00%3A00.000Z&device=PHONE&limit={limit}&offset={offset}"
+    url = f"{CATEGORY_URL}?category={category.lower()}&country={country.upper()}&date={date}T00%3A00%3A00.000Z&device=PHONE&limit={limit}&offset={offset}"
 
     response = requests.get(url)
 
@@ -18,11 +19,12 @@ def list_top_free(category, country, limit=200, offset=0):
 
         Path(category_dir).mkdir(parents=True, exist_ok=True)
 
-        category_file = f"{category_dir}/{today}-top-free-{limit}.json"
+        category_file = f"{category_dir}/{date}-top-free-{limit}.json"
 
         data = {
             'country': country.upper(),
             'category': category.upper(),
+            'url': url,
             'count': -1,
             'top_free': [],
             'apps': {}

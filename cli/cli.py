@@ -172,8 +172,10 @@ def list_ranks(category_id):
 @cli.command(help="List the top free in a category by country on the Google Play store")
 @click.option("--category-id", required=True, help="The Category ID to list the ranks for, e.g. FINANCE")
 @click.option("--country", required=True, help="The country to list the category ranks, e.g. US")
-def list_top_free(category_id, country):
-    result = sensortower.list_top_free(category_id, country)
+@click.option("--limit", default=200, help="The limit for the number of top free apps. Defaults to 200")
+@click.option("--date", default=None, help="The date for the top free apps. Defaults to use todays date.")
+def list_top_free(category_id, country, limit, date):
+    result = sensortower.list_top_free(category_id, country, date, limit)
 
     if 'error' in result:
         echoError(result['error'])
@@ -269,6 +271,26 @@ def download_category_apks(category_id):
 @click.option("--category-id", required=True, help="The Category ID to fix the downloaded APKs, e.g. FINANCE")
 def download_fix_category_apks(category_id):
     result = download.fixDownloadedApksByCategory(category_id)
+
+    if 'error' in result:
+        echoError(result['error'])
+        exit(1)
+
+    if 'progress' in result:
+        echoSuccess(f"APKS downloaded to: {result['dir']}")
+        click.echo(f"category total: {result['progress']['category_total']}")
+        click.echo(f"total downloaded: {result['progress']['total_downloaded']}")
+        click.echo(f"total remaining: {result['progress']['total_remaining']}")
+        click.echo(f"total download failures: {result['progress']['total_download_failures']}")
+        exit(0)
+
+@cli.command(help="Fix top free diff with the already downloaded Apps APKs for a category ID.")
+@click.option("--diff-file", required=True, help="The path to the diff file")
+@click.option("--email", required=True, help="The email for your device Google account")
+def download_apks_from_diff(diff_file, email):
+    # diff_file = f"../../report/data/diff-200-top-free-GB-finance-2022-10-17.json"
+
+    result = download.downloadApksFromDiff(diff_file, email)
 
     if 'error' in result:
         echoError(result['error'])

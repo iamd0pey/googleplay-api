@@ -78,6 +78,7 @@ Main() {
       --publish "127.0.0.1:"${PORT_MAP} \
       --env-file .env \
       --volume "${PWD}"/../data:/home/developer/workspace/data/scrapped \
+      --volume "${PWD}"/../report/data:/home/developer/workspace/data/report \
       --volume "${PWD}":/home/developer/workspace \
       "${IMAGE_NAME}" \
       "${COMMAND}" ${@}
