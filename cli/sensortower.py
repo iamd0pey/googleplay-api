@@ -5,7 +5,6 @@ import requests
 
 CATEGORY_URL = "https://app.sensortower.com/api/android/rankings/get_category_rankings"
 
-# each count in the limit equals to 3 apps
 def list_top_free(category, country, limit=200, offset=0):
 
     today = date.today().isoformat()
