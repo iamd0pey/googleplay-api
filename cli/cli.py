@@ -287,10 +287,11 @@ def download_fix_category_apks(category_id):
 @cli.command(help="Fix top free diff with the already downloaded Apps APKs for a category ID.")
 @click.option("--diff-file", required=True, help="The path to the diff file")
 @click.option("--email", required=True, help="The email for your device Google account")
-def download_apks_from_diff(diff_file, email):
+@click.option("--retry-failed", default=False, help="Retry the failed downloads")
+def download_apks_from_diff(diff_file, email, retry_failed):
     # diff_file = f"../../report/data/diff-200-top-free-GB-finance-2022-10-17.json"
 
-    result = download.downloadApksFromDiff(diff_file, email)
+    result = download.downloadApksFromDiff(diff_file, email, retry_failed)
 
     if 'error' in result:
         echoError(result['error'])
@@ -302,6 +303,23 @@ def download_apks_from_diff(diff_file, email):
         click.echo(f"total downloaded: {result['progress']['total_downloaded']}")
         click.echo(f"total remaining: {result['progress']['total_remaining']}")
         click.echo(f"total download failures: {result['progress']['total_download_failures']}")
+        exit(0)
+
+@cli.command(help="Organize downloaded APKs by category and country.")
+@click.option("--country-file", required=True, help="The path to the country file")
+def download_organize_by_country(country_file):
+    # diff_file = f"../../report/data/diff-200-top-free-GB-finance-2022-10-17.json"
+
+    result = download.organizeByCountryCategory(country_file)
+
+    if 'error' in result:
+        echoError(result['error'])
+        exit(1)
+
+    if 'progress' in result:
+        echoSuccess(f"Country APKS moved to: {result['dir']}")
+        click.echo(f"total categorized: {result['progress']['total_categorized']}")
+        click.echo(f"total uncategorized: {result['progress']['total_uncategorized']}")
         exit(0)
 
 

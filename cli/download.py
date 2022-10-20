@@ -9,6 +9,7 @@ import json
 import accounts
 from time import sleep
 import random
+import shutil
 
 # import logging
 # log = logging.getLogger()
@@ -31,12 +32,13 @@ GOOGLE_APP_PASSWORD = os.environ["GOOGLE_APP_PASSWORD"]
 # DOWNLOAD_PATH = os.environ["APK_DOWNLOAD_PATH"]
 DOWNLOAD_PATH = '../data/apks'
 
-SLEEP_SECONDS_MIN = 600
-SLEEP_SECONDS_MAX = 900
+SLEEP_SECONDS_MIN = 15
+SLEEP_SECONDS_MAX = 30
 
 DOWNLOAD_APKS_LIMIT = -1
 DOWNLOADS_PROGRESS_FILENAME = 'downloads-progress.json'
 DOWNLOADS_PROGRESS_DIFF_FILENAME = 'downloads-progress-diff.json'
+DOWNLOADS_PROGRESS_ORGANIZER_FILENAME = 'downloads-progress-organizer.json'
 
 DOWNLOADED_FILE = f"{DOWNLOAD_PATH}/downloaded.json"
 DOWNLOADED_FILE_DEFAULT_KEYS =  {
@@ -50,10 +52,36 @@ DEVICES = {
         'op_8_pro',
     ],
     'US': [
-        'op_7t',
-        'rm_note_5',
+        # 'op_7t',
+        # 'rm_note_5',
+        'US_poco_f1'
+    ],
+    'FR': [
+        'FR_poco_f1'
+    ],
+    'DE': [
+        'DE_poco_f1'
     ],
 }
+
+def uniqueList(items):
+    # All this work to get an unique list... really!!!
+    return list(set(items))
+
+def forceMoveDir(from_dir, to_dir):
+    backup = None
+
+    if os.path.isdir(to_dir):
+        backup = f"{to_dir}-backup"
+        os.rename(to_dir, backup)
+
+    try:
+        os.rename(from_dir, to_dir)
+    except Exception as e:
+        print(e)
+
+    if backup:
+        shutil.rmtree(backup, ignore_errors=False, onerror=None)
 
 def randomSleep():
     # keep a slow pace to avoid being blacklisted.
@@ -65,7 +93,7 @@ def randomSleep():
         seconds -= 1
 
 def buildApkFilePath(app_id, category_id, filename, extension):
-    folder = f"{DOWNLOAD_PATH}/{category_id}/{app_id}"
+    folder = f"{DOWNLOAD_PATH}/{category_id}/UNCATEGORIZED/{app_id}"
 
     os.makedirs(folder, exist_ok = True)
 
@@ -82,52 +110,82 @@ def writeToJsonFile(filename, data):
     with open(filename, "w") as file:
         json.dump(data, file, indent = 4) #, default=list)
 
-def saveApkFrom(download, app_id, category_id = 'UNCATEGORIZED'):
+def saveApkFrom(download, app_id, category_id = 'UNKNOWN'):
     print("\n--> Attempting to download the APK")
-    with open(buildApkFilePath(app_id, category_id, "base", "apk"), "wb") as apk_file:
-        parts = int(download['file']['total_size']) / download['file']['chunk_size']
-        for index, chunk in enumerate(download.get("file").get("data")):
-            apk_file.write(chunk)
-            print(f"\tDownloading: {round((index/parts)*100)}% complete...", end="\r")
 
-        print("\n\tDownload successful\n")
+    try:
+        with open(buildApkFilePath(app_id, category_id, "base", "apk"), "wb") as apk_file:
+            parts = int(download['file']['total_size']) / download['file']['chunk_size']
+            for index, chunk in enumerate(download.get("file").get("data")):
+                apk_file.write(chunk)
+                print(f"\tDownloading: {round((index/parts)*100)}% complete...", end="\r")
 
-def saveAdditionalFilesFrom(download, app_id, category_id = 'UNCATEGORIZED'):
+            print("\n\tDownload successful\n")
+
+        return True, None
+
+    except Exception as e:
+        error = f"Base Download Error: {e}"
+        print(f"\n{error}\n")
+        return False, error
+
+
+def saveAdditionalFilesFrom(download, app_id, category_id = 'UNKNOWN'):
     print('\n--> Attempting to download additional files')
-    for obb in download['additionalData']:
-        # name = DOWNLOAD_PATH + obb['type'] + '.' + str(obb['versionCode']) + '.' + app_id + '.obb'
-        filename = obb['type'] + '.' + str(obb['versionCode'])
-        filepath = buildApkFilePath(app_id, category_id, filename, 'obb')
 
-        with open(filepath, 'wb') as second:
-            parts = int(obb['file']['total_size']) / obb['file']['chunk_size']
-            for index, chunk in enumerate(obb.get("file").get("data")):
-                print(f"Downloading: {round((index/parts)*100)}% complete...", end="\r")
-                second.write(chunk)
+    try:
+        for obb in download['additionalData']:
+            # name = DOWNLOAD_PATH + obb['type'] + '.' + str(obb['versionCode']) + '.' + app_id + '.obb'
+            filename = obb['type'] + '.' + str(obb['versionCode'])
+            filepath = buildApkFilePath(app_id, category_id, filename, 'obb')
 
-            print("\n\tAdditional Download successful\n")
-
-def saveSplitsFrom(download, app_id, category_id = 'UNCATEGORIZED'):
-    print("\n--> Attempting to download splits")
-    splits = download.get('splits')
-    if splits:
-        for split in splits:
-            # split_path = DOWNLOAD_PATH + f"{app_id}_{split['name']}.apk"
-            filepath = buildApkFilePath(app_id, category_id, split['name'], 'apk')
-
-            with open(filepath, 'wb') as f:
-                parts = int(split['file']['total_size']) / split['file']['chunk_size']
-                for index, chunk in enumerate(split.get('file').get('data')):
+            with open(filepath, 'wb') as second:
+                parts = int(obb['file']['total_size']) / obb['file']['chunk_size']
+                for index, chunk in enumerate(obb.get("file").get("data")):
                     print(f"Downloading: {round((index/parts)*100)}% complete...", end="\r")
-                    f.write(chunk)
+                    second.write(chunk)
 
-        print("\n\tSplits Download successful\n")
+                print("\n\tAdditional Download successful\n")
 
-def downloadApkWithRandomLogin(app_id, category_id = 'UNCATEGORIZED'):
+        return True, None
+
+    except Exception as e:
+        error = f"Additional Download Files Error: {e}"
+        print(f"\n{error}\n")
+        return False, error
+
+def saveSplitsFrom(download, app_id, category_id = 'UNKNOWN'):
+    print("\n--> Attempting to download splits")
+
+    try:
+        splits = download.get('splits')
+        if splits:
+            for split in splits:
+                # split_path = DOWNLOAD_PATH + f"{app_id}_{split['name']}.apk"
+                filepath = buildApkFilePath(app_id, category_id, split['name'], 'apk')
+
+                with open(filepath, 'wb') as f:
+                    parts = int(split['file']['total_size']) / split['file']['chunk_size']
+                    for index, chunk in enumerate(split.get('file').get('data')):
+                        print(f"Downloading: {round((index/parts)*100)}% complete...", end="\r")
+                        f.write(chunk)
+
+            print("\n\tSplits Download successful\n")
+
+        return True, None
+
+    except Exception as e:
+        error = f"Split Download Error: {e}"
+        print(f"\n{error}\n")
+        return False, error
+
+def downloadApkWithRandomLogin(app_id, category_id = 'UNKNOWN'):
+    print(f"\n\n-------------------- {app_id} ---------------------\n")
     login = accounts.random_login()
     return _downloadAppApk(app_id, login, category_id)
 
-def downloadApkForDevice(app_id, device_code_name, email, category_id = 'UNCATEGORIZED'):
+def downloadApkForDevice(app_id, device_code_name, email, category_id = 'UNKNOWN'):
+    print(f"\n\n-------------------- {app_id} ---------------------\n")
     login = accounts.login_for_device(device_code_name, email)
 
     # if 'error' in login:
@@ -135,7 +193,8 @@ def downloadApkForDevice(app_id, device_code_name, email, category_id = 'UNCATEG
 
     return _downloadAppApk(app_id, login, category_id)
 
-def downloadApkForCountryDevice(app_id, country_code, email, category_id = 'UNCATEGORIZED'):
+def downloadApkForCountryDevice(app_id, country_code, email, category_id = 'UNKNOWN'):
+    print(f"\n\n-------------------- {app_id} ---------------------\n")
 
     device_code_name = random.choice(DEVICES[country_code.upper()])
 
@@ -146,7 +205,7 @@ def downloadApkForCountryDevice(app_id, country_code, email, category_id = 'UNCA
 
     return _downloadAppApk(app_id, login, category_id)
 
-def _downloadAppApk(app_id, login, category_id = 'UNCATEGORIZED'):
+def _downloadAppApk(app_id, login, category_id = 'UNKNOWN'):
     api = login['api']
     email = login['account']['email']
     device_code_name = login['account']['device_code_name']
@@ -160,8 +219,15 @@ def _downloadAppApk(app_id, login, category_id = 'UNCATEGORIZED'):
 
     download_result = {
         'login_failed': True,
-        'download_failed': True,
-        'exception': None,
+        'download_failed': False,
+        'base_download_failed': False,
+        'additional_files_download_failed': False,
+        'split_download_failed': False,
+        'error': {
+            'base_download': None,
+            'additional_files_download': None,
+            'split_download': None,
+        },
         'metadata': metadata,
         'already_downloaded_for': {},
     }
@@ -181,13 +247,27 @@ def _downloadAppApk(app_id, login, category_id = 'UNCATEGORIZED'):
 
             download = api.download(app_id)
 
-            saveApkFrom(download, app_id, category_id)
+            download_succeeded, error = saveApkFrom(download, app_id, category_id)
 
-            saveAdditionalFilesFrom(download, app_id, category_id)
+            if not download_succeeded:
+                download_result['download_failed'] = True
+                download_result['base_download_failed'] = True
+                download_result['error']['base_download'] = error
+                return download_result
 
-            saveSplitsFrom(download, app_id, category_id)
+            download_succeeded, error = saveAdditionalFilesFrom(download, app_id, category_id)
 
-            download_result['download_failed'] = False
+            if not download_succeeded:
+                download_result['download_failed'] = True
+                download_result['additional_files_download_failed'] = True
+                download_result['error']['additional_files_download'] = error
+
+            download_succeeded, error = saveSplitsFrom(download, app_id, category_id)
+
+            if not download_succeeded:
+                download_result['download_failed'] = True
+                download_result['split_download_failed'] = True
+                download_result['error']['split_download'] = error
 
             metadata_file = buildApkFilePath(app_id, category_id, "metadata", "json")
 
@@ -434,7 +514,7 @@ def fixDownloadedApksByCategory(category_id):
         'progress': fixed_app_ids,
     }
 
-def downloadApksFromDiff(diff_file, email):
+def downloadApksFromDiff(diff_file, email, retry_failed_downloads=False):
 
     diff = readJsonFile(diff_file, {})
 
@@ -467,10 +547,17 @@ def downloadApksFromDiff(diff_file, email):
 
     progress = readJsonFile(progress_diff_file, default)
 
+    if retry_failed_downloads:
+        download_failures_ids = list(progress['download_failures'].keys())
+        progress['remaining_app_ids'] = download_failures_ids + progress['remaining_app_ids']
+
     # progress['remaining_app_ids'] = diff['to_download']
     print("\n---> Starting to download apks in the diff for remaining downloads")
 
-    for app_id in  progress['remaining_app_ids'][:]:
+    progress['remaining_app_ids'] = uniqueList(progress['remaining_app_ids'])
+    progress['downloaded_app_ids'] = uniqueList(progress['downloaded_app_ids'])
+
+    for app_id in progress['remaining_app_ids'][:]:
 
         result = downloadApkForCountryDevice(app_id, country_code, email, category_id)
 
@@ -480,10 +567,14 @@ def downloadApksFromDiff(diff_file, email):
         else:
             progress['downloaded_app_ids'].append(app_id)
 
+            if app_id in download_failures_ids and not result['base_download_failed'] and not result['additional_files_download_failed'] and not result['split_download_failed']:
+                progress['download_failures'].pop(app_id)
+
         # No matter if downloaded succeeded or failed we want to remove the app
         # id  and update the totals accordingly.
         progress['remaining_app_ids'].remove(app_id)
         progress['total_downloaded'] = len(progress['downloaded_app_ids'])
+        progress['total_download_failures'] = len(progress['download_failures'])
         progress['total_remaining'] = len(progress['remaining_app_ids'])
 
         # print("\n-> PROGRESS: ", progress)
@@ -496,5 +587,73 @@ def downloadApksFromDiff(diff_file, email):
 
     return {
         'dir': DOWNLOAD_PATH,
+        'progress': progress,
+    }
+
+def organizeByCountryCategory(country_file):
+    top_free_apps = readJsonFile(country_file, {})
+
+    country_code = top_free_apps['country'].upper()
+    category_id = top_free_apps['category'].upper()
+    date = top_free_apps['date']
+
+    category_dir = os.path.join(DOWNLOAD_PATH, category_id)
+    country_dir = os.path.join(category_dir, country_code)
+    uncategorized_dir = os.path.join(category_dir, 'UNCATEGORIZED')
+
+    print("\n---> Starting to organize apks by country category")
+
+    try:
+        app_ids = os.listdir(uncategorized_dir)
+    except FileNotFoundError:
+        return {
+            'error': f"Category dir not found: {uncategorized_dir}",
+        }
+
+
+    os.makedirs(country_dir, exist_ok = True)
+    os.makedirs(uncategorized_dir, exist_ok = True)
+
+    progress = {
+        'country': country_code,
+        'category_id': category_id,
+        'date': date,
+        'total_categorized': 0,
+        'total_uncategorized': 0,
+        'categorized_app_ids': [],
+        'uncategorized_app_ids': [],
+    }
+
+    progress_file = f"{DOWNLOAD_PATH}/{category_id}/{country_code}-{date}-{DOWNLOADS_PROGRESS_ORGANIZER_FILENAME}"
+    # progress = readJsonFile(progress_file, default)
+
+    for app_id in app_ids[:]:
+
+        if len(app_id) < 3:
+            # It looks like a folder for a country
+            continue
+
+        app_uncategory_dir = os.path.join(uncategorized_dir, app_id)
+
+        if os.path.isdir(app_uncategory_dir):
+            if app_id in top_free_apps['top_free']:
+                app_category_country_dir = os.path.join(country_dir, app_id)
+                print(f"\n---> Move From: {app_uncategory_dir} To: {app_category_country_dir}")
+                forceMoveDir(app_uncategory_dir, app_category_country_dir)
+                progress['categorized_app_ids'].append(app_id)
+
+            else:
+                # app_uncategorized_dir = os.path.join(uncategorized_dir, app_id)
+                # print(f"\n---> Move From: {app_category_dir} To: {app_uncategorized_dir}")
+                # forceMoveDir(app_category_dir, app_uncategorized_dir)
+                progress['uncategorized_app_ids'].append(app_id)
+
+        progress['total_categorized'] = len(progress['categorized_app_ids'])
+        progress['total_uncategorized'] = len(progress['uncategorized_app_ids'])
+
+        writeToJsonFile(progress_file, progress)
+
+    return {
+        'dir': country_dir,
         'progress': progress,
     }
