@@ -27,7 +27,7 @@ def list_top_free(category, country, date=None, limit=200, offset=0):
             'date': date,
             'url': url,
             'count': -1,
-            'top_free': [],
+            'app_ids': [],
             'apps': {}
         }
 

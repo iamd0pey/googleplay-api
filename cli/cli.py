@@ -267,6 +267,22 @@ def download_category_apks(category_id):
         click.echo(f"total download failures: {result['progress']['total_download_failures']}")
         exit(0)
 
+@cli.command(help="Download all Apps APKs for the given category ID and Country Code.")
+@click.option("--country-file", required=True, help="The path to the country file")
+def download_country_category_apks(country_file):
+    result = download.dowanloadApksByCountryCategory(country_file)
+    if 'error' in result:
+        echoError(result['error'])
+        exit(1)
+
+    if 'progress' in result:
+        echoSuccess(f"APKS downloaded to: {result['dir']}")
+        click.echo(f"category total: {result['progress']['category_total']}")
+        click.echo(f"total downloaded: {result['progress']['total_downloaded']}")
+        click.echo(f"total remaining: {result['progress']['total_remaining']}")
+        click.echo(f"total download failures: {result['progress']['total_download_failures']}")
+        exit(0)
+
 @cli.command(help="Fix already downloaded Apps APKs for the given category ID.")
 @click.option("--category-id", required=True, help="The Category ID to fix the downloaded APKs, e.g. FINANCE")
 def download_fix_category_apks(category_id):
@@ -305,22 +321,23 @@ def download_apks_from_diff(diff_file, email, retry_failed):
         click.echo(f"total download failures: {result['progress']['total_download_failures']}")
         exit(0)
 
-@cli.command(help="Organize downloaded APKs by category and country.")
+@cli.command(help="Validate downloaded APKs by category and country.")
 @click.option("--country-file", required=True, help="The path to the country file")
-def download_organize_by_country(country_file):
+def download_validate_country_category_folder(country_file):
     # diff_file = f"../../report/data/diff-200-top-free-GB-finance-2022-10-17.json"
 
-    result = download.organizeByCountryCategory(country_file)
+    result = download.validateCountryCategoryFolder(country_file)
 
     if 'error' in result:
         echoError(result['error'])
         exit(1)
 
-    if 'progress' in result:
-        echoSuccess(f"Country APKS moved to: {result['dir']}")
-        click.echo(f"total categorized: {result['progress']['total_categorized']}")
-        click.echo(f"total uncategorized: {result['progress']['total_uncategorized']}")
-        exit(0)
+    echoSuccess(f"Country APKS dir: {result['dir']}")
+    click.echo(f"Folder Total APKS: {result['folder-total-apks']}")
+    click.echo(f"Top Free Total APKS: {result['top-free-total-apks']}")
+    click.echo(f"Folder Diff: {result['folder-diff']}")
+    click.echo(f"Top Free Diff: {result['top-free-diff']}")
+    exit(0)
 
 
 @cli.command(help="List all device hardware identifiers")

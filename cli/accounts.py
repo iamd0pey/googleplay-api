@@ -38,6 +38,15 @@ def getAccountsForDevice(device_code_name):
 
     return None
 
+def getRandomAccountForDevice(device_code_name):
+    accounts = getAccounts()
+
+    if device_code_name in accounts['by_device']:
+        device_accounts = accounts['by_device'][device_code_name]['accounts']
+        return random.choice(device_accounts)
+
+    return None
+
 
 def getRandomAccount():
 

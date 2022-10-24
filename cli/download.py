@@ -10,6 +10,7 @@ import accounts
 from time import sleep
 import random
 import shutil
+import datetime
 
 # import logging
 # log = logging.getLogger()
@@ -92,11 +93,12 @@ def randomSleep():
         sleep(1)
         seconds -= 1
 
-def buildApkFilePath(app_id, category_id, filename, extension):
-    folder = f"{DOWNLOAD_PATH}/{category_id}/UNCATEGORIZED/{app_id}"
+def buildApkFolderPath(app_id, country_code, category_id):
+    return f"{DOWNLOAD_PATH}/{category_id}/{country_code}/{app_id}"
 
+def buildApkFilePath(app_id, country_code, category_id, filename, extension):
+    folder = buildApkFolderPath(app_id, country_code, category_id)
     os.makedirs(folder, exist_ok = True)
-
     return f"{folder}/{filename}.{extension}"
 
 def readJsonFile(filename, default = []):
@@ -110,11 +112,20 @@ def writeToJsonFile(filename, data):
     with open(filename, "w") as file:
         json.dump(data, file, indent = 4) #, default=list)
 
-def saveApkFrom(download, app_id, category_id = 'UNKNOWN'):
+def saveApkFrom(download, app_id, country_code, category_id = 'UNKNOWN'):
     print("\n--> Attempting to download the APK")
 
     try:
-        with open(buildApkFilePath(app_id, category_id, "base", "apk"), "wb") as apk_file:
+        file_path = buildApkFilePath(app_id, country_code, category_id, "base", "apk")
+
+        # We will skip files already downloaded to speedup the process, but we
+        # may not always want this behavior, therefore we may want to add a
+        # force option.
+        # @TODO ad force option to save apk
+        if os.path.isfile(file_path):
+            return True, None
+
+        with open(file_path, "wb") as apk_file:
             parts = int(download['file']['total_size']) / download['file']['chunk_size']
             for index, chunk in enumerate(download.get("file").get("data")):
                 apk_file.write(chunk)
@@ -130,14 +141,21 @@ def saveApkFrom(download, app_id, category_id = 'UNKNOWN'):
         return False, error
 
 
-def saveAdditionalFilesFrom(download, app_id, category_id = 'UNKNOWN'):
+def saveAdditionalFilesFrom(download, app_id, country_code, category_id = 'UNKNOWN'):
     print('\n--> Attempting to download additional files')
 
     try:
         for obb in download['additionalData']:
             # name = DOWNLOAD_PATH + obb['type'] + '.' + str(obb['versionCode']) + '.' + app_id + '.obb'
             filename = obb['type'] + '.' + str(obb['versionCode'])
-            filepath = buildApkFilePath(app_id, category_id, filename, 'obb')
+            filepath = buildApkFilePath(app_id, country_code, category_id, filename, 'obb')
+
+            # We will skip files already downloaded to speedup the process, but we
+            # may not always want this behavior, therefore we may want to add a
+            # force option.
+            # @TODO ad force option to save apk
+            if os.path.isfile(filepath):
+                continue
 
             with open(filepath, 'wb') as second:
                 parts = int(obb['file']['total_size']) / obb['file']['chunk_size']
@@ -154,7 +172,7 @@ def saveAdditionalFilesFrom(download, app_id, category_id = 'UNKNOWN'):
         print(f"\n{error}\n")
         return False, error
 
-def saveSplitsFrom(download, app_id, category_id = 'UNKNOWN'):
+def saveSplitsFrom(download, app_id, country_code, category_id = 'UNKNOWN'):
     print("\n--> Attempting to download splits")
 
     try:
@@ -162,7 +180,16 @@ def saveSplitsFrom(download, app_id, category_id = 'UNKNOWN'):
         if splits:
             for split in splits:
                 # split_path = DOWNLOAD_PATH + f"{app_id}_{split['name']}.apk"
-                filepath = buildApkFilePath(app_id, category_id, split['name'], 'apk')
+                filepath = buildApkFilePath(app_id, country_code, category_id, split['name'], 'apk')
+
+                print(f"Split file path: {filepath}")
+
+                # We will skip files already downloaded to speedup the process, but we
+                # may not always want this behavior, therefore we may want to add a
+                # force option.
+                # @TODO ad force option to save apk
+                if os.path.isfile(filepath):
+                    continue
 
                 with open(filepath, 'wb') as f:
                     parts = int(split['file']['total_size']) / split['file']['chunk_size']
@@ -179,19 +206,31 @@ def saveSplitsFrom(download, app_id, category_id = 'UNKNOWN'):
         print(f"\n{error}\n")
         return False, error
 
-def downloadApkWithRandomLogin(app_id, category_id = 'UNKNOWN'):
+def downloadApkWithRandomLogin(app_id, country_code, category_id = 'UNKNOWN'):
     print(f"\n\n-------------------- {app_id} ---------------------\n")
-    login = accounts.random_login()
-    return _downloadAppApk(app_id, login, category_id)
+    device_code_name = random.choice(DEVICES[country_code])
+    login = accounts.random_login(device_code_name)
+    return _downloadAppApk(app_id, login, country_code, category_id)
 
 def downloadApkForDevice(app_id, device_code_name, email, category_id = 'UNKNOWN'):
     print(f"\n\n-------------------- {app_id} ---------------------\n")
+
+    if email is None:
+        account = getRandomAccountForDevice(device_code_name)
+
+        if account is None:
+            return {
+                'error': f"No email provided and no accounts found for the device: {device_code_name}"
+            }
+
+        email = account['email']
+
     login = accounts.login_for_device(device_code_name, email)
 
     # if 'error' in login:
     #     return {'error': login['error']}
 
-    return _downloadAppApk(app_id, login, category_id)
+    return _downloadAppApk(app_id, login, country_code, category_id)
 
 def downloadApkForCountryDevice(app_id, country_code, email, category_id = 'UNKNOWN'):
     print(f"\n\n-------------------- {app_id} ---------------------\n")
@@ -203,9 +242,9 @@ def downloadApkForCountryDevice(app_id, country_code, email, category_id = 'UNKN
     if 'error' in login:
         raise login['error']
 
-    return _downloadAppApk(app_id, login, category_id)
+    return _downloadAppApk(app_id, login, country_code, category_id)
 
-def _downloadAppApk(app_id, login, category_id = 'UNKNOWN'):
+def _downloadAppApk(app_id, login, country_code, category_id = 'UNKNOWN'):
     api = login['api']
     email = login['account']['email']
     device_code_name = login['account']['device_code_name']
@@ -215,6 +254,7 @@ def _downloadAppApk(app_id, login, category_id = 'UNKNOWN'):
         'email': email,
         'device_code_name': device_code_name,
         'category_id': category_id,
+        'country_code': country_code,
     }
 
     download_result = {
@@ -247,7 +287,7 @@ def _downloadAppApk(app_id, login, category_id = 'UNKNOWN'):
 
             download = api.download(app_id)
 
-            download_succeeded, error = saveApkFrom(download, app_id, category_id)
+            download_succeeded, error = saveApkFrom(download, app_id, country_code, category_id)
 
             if not download_succeeded:
                 download_result['download_failed'] = True
@@ -255,21 +295,21 @@ def _downloadAppApk(app_id, login, category_id = 'UNKNOWN'):
                 download_result['error']['base_download'] = error
                 return download_result
 
-            download_succeeded, error = saveAdditionalFilesFrom(download, app_id, category_id)
+            download_succeeded, error = saveAdditionalFilesFrom(download, app_id, country_code, category_id)
 
             if not download_succeeded:
                 download_result['download_failed'] = True
                 download_result['additional_files_download_failed'] = True
                 download_result['error']['additional_files_download'] = error
 
-            download_succeeded, error = saveSplitsFrom(download, app_id, category_id)
+            download_succeeded, error = saveSplitsFrom(download, app_id, country_code, category_id)
 
             if not download_succeeded:
                 download_result['download_failed'] = True
                 download_result['split_download_failed'] = True
                 download_result['error']['split_download'] = error
 
-            metadata_file = buildApkFilePath(app_id, category_id, "metadata", "json")
+            metadata_file = buildApkFilePath(app_id, country_code, category_id, "metadata", "json")
 
             writeToJsonFile(metadata_file, metadata)
 
@@ -295,6 +335,7 @@ def _downloadAppApk(app_id, login, category_id = 'UNKNOWN'):
             # raise(e)
             message = f"downloadApk() Exception: {e}"
             print(message)
+            download_result['download_failed'] = True
             download_result['exception'] = message
 
     return download_result
@@ -308,9 +349,26 @@ def dowanloadApksByCategory(category_id):
 
     with open(filename) as file:
         data = json.load(file)
+        data['category'] = category_id
+
+        if not 'date' in data:
+            data['date'] = None
+
+        if not 'country' in data:
+            data['country'] = None
+
+        return downloadApksForApps(data)
+
+
+def downloadApksForApps(data, retry_failed_downloads=True):
+    country_code = data['country'].upper()
+    category_id = data['category'].upper()
+    date = data['date']
 
     default = {
+        'country_code': country_code,
         'category_id': category_id,
+        'scrape_date': date,
         'category_total': 0,
         'total_downloaded': 0,
         'total_remaining': 0,
@@ -325,9 +383,9 @@ def dowanloadApksByCategory(category_id):
         'remaining_app_ids': [],
     }
 
-    file_path = f"{DOWNLOAD_PATH}/{category_id}/{DOWNLOADS_PROGRESS_FILENAME}"
+    progress_file_path = f"{DOWNLOAD_PATH}/{category_id}/{country_code}_{date}_{DOWNLOADS_PROGRESS_FILENAME}"
 
-    progress = readJsonFile(file_path, default)
+    progress = readJsonFile(progress_file_path, default)
 
     app_ids = []
 
@@ -338,8 +396,28 @@ def dowanloadApksByCategory(category_id):
 
     apps = data['apps'].items()
 
+    # progress['to_download'] = []
+
     for app_id, app in apps:
-        if not app['free'] or app['price'] > 0:
+        folder =  buildApkFolderPath(app_id, country_code, category_id)
+
+        # Speedup download by skipping the ones already downloaded in a previous run
+        # This check is naive and we may risk having an incomplete apk or an
+        # empty folder
+        if os.path.isdir(folder):
+            contents = os.listdir(folder)
+
+            if len(contents) > 0 and 'base.apk' in contents:
+                continue
+            else:
+                # progress['to_download'].append(app_id)
+                shutil.rmtree(folder, ignore_errors=False, onerror=None)
+
+        # else:
+        #     # progress['to_download'].append(app_id)
+        #     shutil.rmtree(folder, ignore_errors=False, onerror=None)
+
+        if app['price'] > 0:
             progress['excluded']['paid_apps'].append(app_id)
 
             if app_id in progress['remaining_app_ids']:
@@ -351,7 +429,8 @@ def dowanloadApksByCategory(category_id):
             continue
 
         # 1577836800 => 1 January 2020 00:00:00 GMT+00:00
-        if app['updated'] < 1577836800:
+
+        if 'updated' in app and app['updated'] < 1577836800:
             progress['excluded']['outdated_apps'].append(app_id)
 
             if app_id in progress['remaining_app_ids']:
@@ -362,7 +441,7 @@ def dowanloadApksByCategory(category_id):
 
             continue
 
-        if app['realInstalls'] < 1000:
+        if 'realInstalls' in app and app['realInstalls'] < 1000:
             progress['excluded']['less_then_1000_installs'].append(app_id)
 
             if app_id in progress['remaining_app_ids']:
@@ -377,14 +456,22 @@ def dowanloadApksByCategory(category_id):
 
     progress['category_total'] = len(app_ids)
 
+    # if progress['total_downloaded'] == 0:
+    progress['remaining_app_ids'] = app_ids
+    progress['total_remaining'] = progress['category_total']
 
-    if progress['total_downloaded'] == 0:
-        progress['remaining_app_ids'] = app_ids
-        progress['total_remaining'] = progress['category_total']
+    if retry_failed_downloads:
+        download_failures_ids = list(progress['download_failures'].keys())
+        progress['remaining_app_ids'] = download_failures_ids + progress['remaining_app_ids']
+
 
     total_to_download = len(progress['remaining_app_ids'])
 
-    remaining_app_ids = enumerate(progress['remaining_app_ids'])
+    remaining_app_ids = enumerate(progress['remaining_app_ids'][:])
+
+    # print("TO DOWNLOAD: ", app_ids)
+    # print("TOTAL TO DOWNLOAD: ", len(app_ids))
+    # remaining_app_ids = []
 
     for index, app_id in remaining_app_ids:
         if DOWNLOAD_APKS_LIMIT > 0 and index > DOWNLOAD_APKS_LIMIT:
@@ -392,7 +479,7 @@ def dowanloadApksByCategory(category_id):
 
         print(f"\n\n---> Starting Downloading ({index}/{total_to_download}) APK for {app_id} on category {category_id} <---")
 
-        result = downloadApkWithRandomLogin(app_id, category_id)
+        result = downloadApkWithRandomLogin(app_id, country_code, category_id)
 
         if result['login_failed'] == True or result['download_failed'] == True:
             progress['download_failures'][app_id] = result
@@ -408,15 +495,38 @@ def dowanloadApksByCategory(category_id):
 
         # print("\n-> PROGRESS: ", progress)
 
-        writeToJsonFile(file_path, progress)
+        writeToJsonFile(progress_file_path, progress)
 
         # keep a slow pace to avoid being blacklisted.
         randomSleep()
+
 
     return {
         'dir': DOWNLOAD_PATH,
         'progress': progress,
     }
+
+
+def dowanloadApksByCountryCategory(country_file):
+
+    data = readJsonFile(country_file, {})
+
+    # country_code = top_free_apps['country'].upper()
+    # category_id = top_free_apps['category'].upper()
+    # date = top_free_apps['date']
+
+    # category_dir = os.path.join(DOWNLOAD_PATH, category_id)
+    # country_dir = os.path.join(category_dir, country_code)
+    # uncategorized_dir = os.path.join(category_dir, 'UNCATEGORIZED')
+
+    # print("\n---> Starting to organize apks by country category")
+
+    return downloadApksForApps(data)
+
+    # return {
+    #     'dir': DOWNLOAD_PATH,
+    #     'progress': progress,
+    # }
 
 
 def fixDownloadedApksByCategory(category_id):
@@ -638,8 +748,9 @@ def organizeByCountryCategory(country_file):
         if os.path.isdir(app_uncategory_dir):
             if app_id in top_free_apps['top_free']:
                 app_category_country_dir = os.path.join(country_dir, app_id)
-                print(f"\n---> Move From: {app_uncategory_dir} To: {app_category_country_dir}")
-                forceMoveDir(app_uncategory_dir, app_category_country_dir)
+                print(f"\n---> Copy From: {app_uncategory_dir} To: {app_category_country_dir}")
+                # forceMoveDir(app_uncategory_dir, app_category_country_dir)
+                shutil.copytree(app_uncategory_dir, app_category_country_dir) # dirs_exist_ok=True)
                 progress['categorized_app_ids'].append(app_id)
 
             else:
@@ -656,4 +767,41 @@ def organizeByCountryCategory(country_file):
     return {
         'dir': country_dir,
         'progress': progress,
+    }
+
+
+def validateCountryCategoryFolder(country_file):
+    top_free_apps = readJsonFile(country_file, {})
+
+    country_code = top_free_apps['country'].upper()
+    category_id = top_free_apps['category'].upper()
+    date = top_free_apps['date']
+
+    category_dir = os.path.join(DOWNLOAD_PATH, category_id)
+    country_dir = os.path.join(category_dir, country_code)
+
+    print("\n---> Starting to validate APKS folder by country category")
+
+    progress = {
+        'country': country_code,
+        'category_id': category_id,
+        'date': date,
+        'total_categorized': 0,
+        'total_uncategorized': 0,
+        'categorized_app_ids': [],
+        'uncategorized_app_ids': [],
+    }
+
+    # progress_file = f"{country_dir}-{date}-apks-foldervalidation.json"
+
+    folder_app_ids = os.listdir(country_dir)
+
+    top_free_app_ids = top_free_apps['apps'].keys()
+
+    return {
+        'dir': country_dir,
+        'folder-total-apks': len(folder_app_ids),
+        'top-free-total-apks': len(top_free_app_ids),
+        'folder-diff': folder_app_ids - top_free_app_ids,
+        'top-free-diff': top_free_app_ids - folder_app_ids,
     }
