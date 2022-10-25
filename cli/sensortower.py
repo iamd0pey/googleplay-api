@@ -15,7 +15,7 @@ def list_top_free(category, country, date=None, limit=200, offset=0):
     response = requests.get(url)
 
     if response.status_code == 200:
-        category_dir = f"../data/categories/{country}/{category.lower()}"
+        category_dir = f"../data/categories/{country.lower()}/{category.lower()}"
 
         Path(category_dir).mkdir(parents=True, exist_ok=True)
 
@@ -38,10 +38,10 @@ def list_top_free(category, country, date=None, limit=200, offset=0):
         # for index, row in enumerate(response.json()):
         for row in response.json():
             app = row[0]
-            data['top_free'].append(app['app_id'])
+            data['app_ids'].append(app['app_id'])
             data['apps'][app['app_id']] = app
 
-        data['count'] = len(data['top_free'])
+        data['count'] = len(data['app_ids'])
 
         with open(category_file, "w") as file:
             json.dump(data, file, indent = 4, default=list)

@@ -58,10 +58,13 @@ DEVICES = {
         'US_poco_f1'
     ],
     'FR': [
-        'FR_poco_f1'
+        'FR2_poco_f1'
     ],
     'DE': [
         'DE_poco_f1'
+    ],
+    'BR': [
+        'BR_poco_f1'
     ],
 }
 
@@ -485,6 +488,9 @@ def downloadApksForApps(data, retry_failed_downloads=True):
             progress['download_failures'][app_id] = result
             progress['total_download_failures'] = len(progress['download_failures'])
         else:
+            if app_id in progress['download_failures']:
+                progress['download_failures'].pop(app_id)
+
             progress['downloaded_app_ids'].append(app_id)
 
         # No matter if downloaded succeeded or failed we want to remove the app
@@ -492,6 +498,7 @@ def downloadApksForApps(data, retry_failed_downloads=True):
         progress['remaining_app_ids'].remove(app_id)
         progress['total_downloaded'] = len(progress['downloaded_app_ids'])
         progress['total_remaining'] = len(progress['remaining_app_ids'])
+        progress['total_download_failures'] = len(progress['download_failures'])
 
         # print("\n-> PROGRESS: ", progress)
 
@@ -771,6 +778,10 @@ def organizeByCountryCategory(country_file):
 
 
 def validateCountryCategoryFolder(country_file):
+
+    if not os.path.exists(country_file):
+        return {'error': f"FIle not found: {country_file}"}
+
     top_free_apps = readJsonFile(country_file, {})
 
     country_code = top_free_apps['country'].upper()
