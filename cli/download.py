@@ -64,7 +64,8 @@ DEVICES = {
         'DE_poco_f1'
     ],
     'BR': [
-        'BR_poco_f1'
+        # 'BR_poco_f1',
+        "BR_sm_s9_plus",
     ],
 }
 
@@ -103,6 +104,23 @@ def buildApkFilePath(app_id, country_code, category_id, filename, extension):
     folder = buildApkFolderPath(app_id, country_code, category_id)
     os.makedirs(folder, exist_ok = True)
     return f"{folder}/{filename}.{extension}"
+
+def buildBaseDownloadResult(metadata):
+    return {
+        'login_failed': False,
+        'download_failed': False,
+        'base_download_failed': False,
+        'additional_files_download_failed': False,
+        'split_download_failed': False,
+        'error': {
+            'login': None,
+            'base_download': None,
+            'additional_files_download': None,
+            'split_download': None,
+        },
+        'metadata': metadata,
+        'already_downloaded_for': {},
+    }
 
 def readJsonFile(filename, default = []):
     if not os.path.exists(filename):
@@ -212,14 +230,32 @@ def saveSplitsFrom(download, app_id, country_code, category_id = 'UNKNOWN'):
 def downloadApkWithRandomLogin(app_id, country_code, category_id = 'UNKNOWN'):
     print(f"\n\n-------------------- {app_id} ---------------------\n")
     device_code_name = random.choice(DEVICES[country_code])
-    login = accounts.random_login(device_code_name)
+
+    try:
+        login = accounts.random_login(device_code_name)
+    except Exception as e:
+        metadata = {
+            'app_id': app_id,
+            'email': 'UNKNOWN',
+            'device_code_name': device_code_name,
+            'category_id': category_id,
+            'country_code': country_code,
+        }
+
+        download_result = buildBaseDownloadResult(metadata)
+
+        download_result['login_failed'] = True
+        download_result['error']['login'] = f"downloadApkWithRandomLogin(): {e}"
+
+        return download_result
+
     return _downloadAppApk(app_id, login, country_code, category_id)
 
-def downloadApkForDevice(app_id, device_code_name, email, category_id = 'UNKNOWN'):
+def downloadApkForDevice(app_id, device_code_name, country_code, category_id, email):
     print(f"\n\n-------------------- {app_id} ---------------------\n")
 
     if email is None:
-        account = getRandomAccountForDevice(device_code_name)
+        account = accounts.getRandomAccountForDevice(device_code_name)
 
         if account is None:
             return {
@@ -235,7 +271,7 @@ def downloadApkForDevice(app_id, device_code_name, email, category_id = 'UNKNOWN
 
     return _downloadAppApk(app_id, login, country_code, category_id)
 
-def downloadApkForCountryDevice(app_id, country_code, email, category_id = 'UNKNOWN'):
+def downloadApkForCountryDevice(app_id, country_code, email, category_id):
     print(f"\n\n-------------------- {app_id} ---------------------\n")
 
     device_code_name = random.choice(DEVICES[country_code.upper()])
@@ -260,20 +296,7 @@ def _downloadAppApk(app_id, login, country_code, category_id = 'UNKNOWN'):
         'country_code': country_code,
     }
 
-    download_result = {
-        'login_failed': True,
-        'download_failed': False,
-        'base_download_failed': False,
-        'additional_files_download_failed': False,
-        'split_download_failed': False,
-        'error': {
-            'base_download': None,
-            'additional_files_download': None,
-            'split_download': None,
-        },
-        'metadata': metadata,
-        'already_downloaded_for': {},
-    }
+    download_result = buildBaseDownloadResult(metadata)
 
     if 'api' in login:
         download_result['login_failed'] = False
@@ -372,7 +395,7 @@ def downloadApksForApps(data, retry_failed_downloads=True):
         'country_code': country_code,
         'category_id': category_id,
         'scrape_date': date,
-        'category_total': 0,
+        'total_to_download': 0,
         'total_downloaded': 0,
         'total_remaining': 0,
         'total_download_failures': 0,
@@ -457,18 +480,20 @@ def downloadApksForApps(data, retry_failed_downloads=True):
 
         app_ids.append(app_id)
 
-    progress['category_total'] = len(app_ids)
-
-    # if progress['total_downloaded'] == 0:
     progress['remaining_app_ids'] = app_ids
-    progress['total_remaining'] = progress['category_total']
 
     if retry_failed_downloads:
         download_failures_ids = list(progress['download_failures'].keys())
         progress['remaining_app_ids'] = download_failures_ids + progress['remaining_app_ids']
 
+    progress['remaining_app_ids'] = uniqueList(progress['remaining_app_ids'])
+    progress['downloaded_app_ids'] = uniqueList(progress['downloaded_app_ids'])
 
     total_to_download = len(progress['remaining_app_ids'])
+
+    progress['total_remaining'] = total_to_download
+    progress['total_to_download'] = total_to_download
+    progress['total_downloaded'] = len(progress['downloaded_app_ids'])
 
     remaining_app_ids = enumerate(progress['remaining_app_ids'][:])
 
@@ -539,7 +564,7 @@ def dowanloadApksByCountryCategory(country_file):
 def fixDownloadedApksByCategory(category_id):
     default = {
         'category_id': category_id,
-        'category_total': 0,
+        'total_to_download': 0,
         'total_downloaded': 0,
         'total_remaining': 0,
         'total_download_failures': 0,
@@ -570,7 +595,7 @@ def fixDownloadedApksByCategory(category_id):
             print('files: ', files)
             fix_app_ids.append(app_id)
 
-    fixed_app_ids['category_total'] = progress['category_total']
+    fixed_app_ids['total_to_download'] = progress['total_to_download']
     fixed_app_ids['remaining_app_ids'] = fix_app_ids
 
     total_to_download = len(fix_app_ids)
@@ -648,7 +673,7 @@ def downloadApksFromDiff(diff_file, email, retry_failed_downloads=False):
         'country': country_code,
         'category_id': category_id,
         'date': date,
-        'category_total': 0,
+        'total_to_download': 0,
         'total_downloaded': 0,
         'total_remaining': 0,
         'total_download_failures': 0,

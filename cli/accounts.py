@@ -43,7 +43,8 @@ def getRandomAccountForDevice(device_code_name):
 
     if device_code_name in accounts['by_device']:
         device_accounts = accounts['by_device'][device_code_name]['accounts']
-        return random.choice(device_accounts)
+        email = random.choice(list(device_accounts))
+        return device_accounts[email]
 
     return None
 

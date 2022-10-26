@@ -230,9 +230,11 @@ def download_apk(app_id):
 @cli.command(help="Downloads the App APK for a specific device and Google account")
 @click.option("--app-id", required=True, help="The APP ID to download, e.g. com.example.app")
 @click.option("--device", required=True, help="The device code name, e.g angler. [default: random]")
-@click.option("--email", required=True, help="The email for your device Google account")
-def download_device_apk(app_id, device, email):
-    result = download.downloadApkForDevice(app_id, device, email)
+@click.option("--country-code", required=True, help="The country code for the APP category, e.g US")
+@click.option("--category-id", required=True, help="The Category ID to download the APKs, e.g. FINANCE")
+@click.option("--email", default=None, help="The email for your device Google account")
+def download_device_apk(app_id, device, country_code, category_id, email):
+    result = download.downloadApkForDevice(app_id, device, country_code, category_id, email)
     print(result)
 
     if 'error' in result:
