@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from gpapi.googleplay import GooglePlayAPI, config
+from google_play_scraper import app, search
 
 import sys
 import os
@@ -68,6 +69,10 @@ DEVICES = {
         "BR_sm_s9_plus",
     ],
 }
+
+def makeDirsRecursivelyForFile(file_path):
+    folder = os.path.dirname(file_path)
+    os.makedirs(folder, exist_ok = True)
 
 def uniqueList(items):
     # All this work to get an unique list... really!!!
@@ -841,3 +846,49 @@ def validateCountryCategoryFolder(country_file):
         'folder-diff': folder_app_ids - top_free_app_ids,
         'top-free-diff': top_free_app_ids - folder_app_ids,
     }
+
+
+def fetch_app_details(app_id, country='us', lang='en'):
+    return app(
+        app_id,
+        lang=lang,
+        country=country # defaults to 'us'
+    )
+
+def fetch_app_metadata(app_id, country_code):
+
+    device_code_name = random.choice(DEVICES[country_code.upper()])
+
+    account = accounts.getRandomAccountForDevice(device_code_name)
+
+    if account is None:
+        return {
+            'error': f"No email provided and no accounts found for the device: {device_code_name}"
+        }
+
+    email = account['email']
+
+    login = accounts.login_for_device(device_code_name, email)
+
+    if 'error' in login:
+        return login
+
+    api = login['api']
+
+    result = api.details(app_id)
+
+    file_path = f"../data/apps/{app_id}/{country_code}/details.json"
+
+    makeDirsRecursivelyForFile(file_path)
+
+    writeToJsonFile(file_path, result)
+
+    result = fetch_app_details(app_id, country_code.lower())
+
+    file_path = f"../data/apps/{app_id}/{country_code}/details2.json"
+
+    makeDirsRecursivelyForFile(file_path)
+
+    writeToJsonFile(file_path, result)
+
+    return {'dir': file_path}

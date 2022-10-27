@@ -75,7 +75,6 @@ Main() {
       --rm \
       ${BACKGROUND_MODE} \
       --user ${CONTAINER_USER} \
-      --publish "127.0.0.1:"${PORT_MAP} \
       --env-file .env \
       --volume "${PWD}"/../data:/home/developer/workspace/data/scrapped \
       --volume "${PWD}"/../report/data:/home/developer/workspace/data/report \

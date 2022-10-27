@@ -326,8 +326,6 @@ def download_apks_from_diff(diff_file, email, retry_failed):
 @cli.command(help="Validate downloaded APKs by category and country.")
 @click.option("--country-file", required=True, help="The path to the country file")
 def download_validate_country_category_folder(country_file):
-    # diff_file = f"../../report/data/diff-200-top-free-GB-finance-2022-10-17.json"
-
     result = download.validateCountryCategoryFolder(country_file)
 
     if 'error' in result:
@@ -339,6 +337,20 @@ def download_validate_country_category_folder(country_file):
     click.echo(f"Top Free Total APKS: {result['top-free-total-apks']}")
     click.echo(f"Folder Diff: {result['folder-diff']}")
     click.echo(f"Top Free Diff: {result['top-free-diff']}")
+    exit(0)
+
+@cli.command(help="Get the details for the given app ID.")
+@click.option("--app-id", required=True, help="The app id, e.g. com.example.app")
+@click.option("--country-code", required=True, help="The country code for the APP category, e.g US")
+def fetch_app_details(app_id, country_code):
+    result = download.fetch_app_metadata(app_id, country_code)
+
+    if 'error' in result:
+        echoError(result['error'])
+        exit(1)
+
+    echoSuccess(f"App metadata fetched successfully...")
+    click.echo(f"App details saved to: {result['dir']}")
     exit(0)
 
 
