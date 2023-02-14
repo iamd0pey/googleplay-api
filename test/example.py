@@ -3,17 +3,6 @@ import sys
 import json
 from gpapi.googleplay import GooglePlayAPI
 
-# Json login file must be placed in the root be structured like:
-# {
-#     "log_in_name": {
-#         "username": "username",
-#         "password": "password",
-#         "deviceName": device_name:str,
-#         "gsfId" : id_number:int,
-#         "authSubToken" : token:str
-#     },
-# }
-
 def resource_path(relative_path):
     """Get absolute path to resource, works for dev and for PyInstaller."""
 
@@ -30,19 +19,41 @@ input("Press Enter To Start")
 
 with open(resource_path("login.json")) as logins:
     device_log_ins = json.load(logins)
-    current_log_in = device_log_ins['pixel_2'] # Change this to change device
+    current_log_in = device_log_ins['test_device'] # Change this to change device
 
-server = GooglePlayAPI("en_US", "America/Toronto", current_log_in['deviceName'])
+#server = GooglePlayAPI("en_US", "America/Toronto", current_log_in['deviceName'])
+server = GooglePlayAPI("en_US", "Europe/Portugal", current_log_in['deviceName'])
+
 
 print("Logging in...")
 server.login(
     email=current_log_in['username'],
     password=current_log_in['password'],
-    # gsfId=current_log_in['gsfId'],
-    # authSubToken=current_log_in['authSubToken']
 )
 print("Complete!")
 
+print("\nBrowse play store categories\n")
+browse = server.browse()
+for c in browse["category"]:
+    nameCat = c["name"]
+    data_url = c["dataUrl"]
+    if "homeV2" not in data_url: #Only look at applications that have a valid category
+        continue
+    sampleCat = data_url[11:].split("&")[0]
+    #print("\nBrowsing the {} category that has the parameter {}\n".format(nameCat, sampleCat))
+    browseCat = server.home(cat=sampleCat) #Browse Applications for that category
+    for child in browseCat:
+        for cluster in child.get('child'):
+            print(cluster.get("title"))
+            for app in cluster.get('child'):
+                print("Title: {} - Package: {} - Category: {}".format(app.get('title'), app.get('docid'), nameCat))
+
+
+
+'''
+
+'''
+'''
 # Replace these with your package and version code names
 docid = "com.package.name"
 versionCode = 1234
@@ -80,3 +91,4 @@ if splits:
                 f.write(chunk)
             print("")
     print("Download successful")
+'''
