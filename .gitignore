@@ -13,6 +13,8 @@ venv
 login.json
 local_example.py
 apks/
+config
+info
 
 
 # This file will be generated during build
